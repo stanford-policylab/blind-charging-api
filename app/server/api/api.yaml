@@ -1,0 +1,476 @@
+openapi: '3.0.3'
+
+info:
+  title: Blind Charging API
+  description: |
+    **DRAFT**
+
+    **_This is a draft specification, not the final version!_**
+
+    This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
+  version: 0.0.1
+  contact:
+    name: Joe Nudell
+    email: jnudell@hks.harvard.edu
+  license:
+    name: MIT License
+    url: https://opensource.org/license/mit/
+
+tags:
+  - name: redaction
+  - name: workflow
+  - name: bookkeeping
+
+paths:
+
+  /redact:
+    post:
+      summary: Redact a document
+      description: |
+        Submit a document for redaction. Redaction happens asynchronously and may take some time.
+        When finished, the redacted document will be posted to the provided callback URL.
+      tags:
+        - redaction
+      operationId: redact-document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedactionRequest"
+      responses:
+        "201":
+          description: "Accepted"
+      callbacks:
+        redactionComplete:
+          '{$request.body#/callbackUrl}':
+            post:
+              summary: Redaction complete
+              description: |
+                This callback is made when the redaction process is complete.
+                The redacted document URL is provided in the response body.
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/RedactionResult"
+              responses:
+                "201":
+                  description: "Accepted"
+
+  /redact/{jurisdictionId}/{caseId}:
+    get:
+      summary: Get status of document redaction for a case.
+      description: |
+        Get the status of redaction for all documents in a case.
+        This will return a list of document IDs and their redaction status.
+      tags:
+        - redaction
+      operationId: get-redaction-status
+      parameters:
+        - name: jurisdictionId
+          in: path
+          required: true
+          description: The jurisdiction ID
+          schema:
+            type: string
+        - name: caseId
+          in: path
+          required: true
+          description: The case ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedactionStatus"
+
+  /review/{jurisdictionId}/{caseId}:
+    get:
+      summary: Get a list of documents to review
+      description: |
+        Get a list of documents to review for a case.
+      tags:
+        - workflow
+      operationId: get-review-documents
+      parameters:
+        - name: jurisdictionId
+          in: path
+          required: true
+          description: The jurisdiction ID
+          schema:
+            type: string
+        - name: caseId
+          in: path
+          required: true
+          description: The case ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewMeta"
+        "424":
+          description: "Documents are not processed yet"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /exposure:
+    post:
+      summary: Log an exposure event
+      description: |
+        Posting an "exposure" event is required whenever someone views a case.
+        This must happen regardless whether the case is blinded or not.
+        We need to see who is viewing cases and when in order to monitor and improve our application.
+      tags:
+        - bookkeeping
+      operationId: log-exposure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Exposure"
+      responses:
+        "201":
+          description: "Accepted"
+
+  /outcome:
+    post:
+      summary: Log an outcome event
+      description: |
+        Posting an "outcome" event is required whenever someone makes a decision on a case.
+        This must happen regardless whether the case is blinded or not.
+        We need to see who is making decisions and when in order to monitor and improve our application.
+      tags:
+        - bookkeeping
+      operationId: log-outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Outcome"
+      responses:
+        "201":
+          description: "Accepted"
+
+# Data types
+components:
+  parameters: {}
+  schemas:
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+
+    DocumentLink:
+      type: object
+      required:
+        - documentId
+        - documentUrl
+      properties:
+        documentId:
+          type: string
+        documentUrl:
+          type: string
+          format: uri
+
+    ReviewMeta:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documents
+        - protocol
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        protocol:
+          $ref: "#/components/schemas/ReviewProtocol"
+        redactedDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentLink"
+
+    RedactionResultSuccess:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documentId
+        - documentUrl
+        - status
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        documentId:
+          type: string
+        documentUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum:
+            - COMPLETE
+
+    RedactionResultError:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documentId
+        - error
+        - status
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        documentId:
+          type: string
+        error:
+          type: string
+        status:
+          type: string
+          enum:
+            - ERROR
+
+    RedactionResultPending:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documentId
+        - status
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        documentId:
+          type: string
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - PROCESSING
+
+    RedactionResult:
+      oneOf:
+        - $ref: "#/components/schemas/RedactionResultSuccess"
+        - $ref: "#/components/schemas/RedactionResultError"
+        - $ref: "#/components/schemas/RedactionResultPending"
+      discriminator:
+        propertyName: status
+        mapping:
+          COMPLETE: "#/components/schemas/RedactionResultSuccess"
+          ERROR: "#/components/schemas/RedactionResultError"
+          QUEUED: "#/components/schemas/RedactionResultPending"
+          PROCESSING: "#/components/schemas/RedactionResultPending"
+
+    RedactionStatus:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documents
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/RedactionResult"
+
+    RedactionRequest:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - documentId
+        - documentUrl
+        - callbackUrl
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        documentId:
+          type: string
+        documentUrl:
+          type: string
+        callbackUrl:
+          type: string
+          format: uri
+
+    ReviewTimestamps:
+      type: object
+      required:
+        - pageOpen
+        - decision
+      properties:
+        pageOpen:
+          type: string
+          format: date-time
+        decision:
+          type: string
+          format: date-time
+
+    ReviewProtocol:
+      type: string
+      enum:
+        - BLIND_REVIEW
+        - FINAL_REVIEW
+
+    BlindReviewOutcome:
+      type: object
+      oneOf:
+        - required: [protocol, chargingDecision, chargingDecisionExplanation]
+        - required: [protocol, disqualifyingReason]
+      required:
+        - protocol
+      properties:
+        protocol:
+          type: string
+          enum:
+            - BLIND_REVIEW
+          example: BLIND_REVIEW
+        chargingDecision:
+          type: string
+          enum:
+            - CHARGE_LIKELY
+            - CHARGE_MAYBE
+            - DECLINE_MAYBE
+            - DECLINE_LIKELY
+          example: CHARGE_LIKELY
+        chargingDecisionExplanation:
+          type: string
+          example: "The defendant was caught on camera with the stolen goods."
+        additionalEvidence:
+          type: string
+          example: "The defendant has a history of theft."
+        disqualifyingReason:
+          type: string
+          enum:
+            - ASSIGNED_TO_UNBLIND
+            - CASE_TYPE_INELIGIBLE
+            - PRIOR_KNOWLEDGE_BIAS
+            - NARRATIVE_INCOMPLETE
+            - REDACTION_MISSING
+            - REDACTION_ILLEGIBLE
+            - OTHER
+          example: CASE_TYPE_INELIGIBLE
+        disqualifyingReasonExplanation:
+          type: string
+          example: "I have prior knowledge of the individuals involved in this case."
+
+    FinalReviewOutcome:
+      type: object
+      required:
+        - protocol
+        - chargingDecision
+        - chargingDecisionExplanation
+      properties:
+        protocol:
+          type: string
+          enum:
+            - FINAL_REVIEW
+          example: FINAL_REVIEW
+        chargingDecision:
+          type: string
+          enum:
+            - CHARGE
+            - DECLINE
+          example: CHARGE_LIKELY
+        chargingDecisionExplanation:
+          type: string
+          example: "The defendant was caught on camera with the stolen goods."
+
+    ReviewOutcome:
+      oneOf:
+        - $ref: "#/components/schemas/BlindReviewOutcome"
+        - $ref: "#/components/schemas/FinalReviewOutcome"
+      discriminator:
+        propertyName: protocol
+        mapping:
+          BLIND_REVIEW: "#/components/schemas/BlindReviewOutcome"
+          FINAL_REVIEW: "#/components/schemas/FinalReviewOutcome"
+
+    Exposure:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - defendantIds
+        - reviewingAttorneyUserId
+        - documentIds
+        - protocol
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        defendantIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        reviewingAttorneyUserId:
+          type: string
+        documentIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        protocol:
+          $ref: "#/components/schemas/ReviewProtocol"
+
+    Outcome:
+      type: object
+      required:
+        - jurisdictionId
+        - caseId
+        - defendantId
+        - reviewingAttorneyUserId
+        - documentIds
+        - protocol
+        - blindReviewOutcome
+        - timestamps
+      properties:
+        jurisdictionId:
+          type: string
+        caseId:
+          type: string
+        defendantIds:
+          type: string
+        reviewingAttorneyUserId:
+          type: string
+        documentIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        outcome:
+          $ref: "#/components/schemas/ReviewOutcome"
+        timestamps:
+          $ref: "#/components/schemas/ReviewTimestamps"
