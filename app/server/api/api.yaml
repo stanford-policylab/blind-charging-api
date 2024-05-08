@@ -8,7 +8,7 @@ info:
     **_This is a draft specification, not the final version!_**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.0.1
+  version: 0.0.2
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -180,21 +180,42 @@ components:
     DocumentLink:
       type: object
       required:
+        - attachmentType
         - documentId
         - documentUrl
       properties:
+        attachmentType:
+          type: string
+          enum:
+            - LINK
         documentId:
           type: string
-        documentUrl:
+        url:
           type: string
           format: uri
+
+    DocumentText:
+      type: object
+      required:
+        - attachmentType
+        - documentId
+        - content
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - TEXT
+        documentId:
+          type: string
+        content:
+          type: string
 
     ReviewMeta:
       type: object
       required:
         - jurisdictionId
         - caseId
-        - documents
+        - redactedDocuments
         - protocol
       properties:
         jurisdictionId:
@@ -213,19 +234,18 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
-        - documentUrl
+        - inputDocument
+        - redactedDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
-        documentUrl:
-          type: string
-          format: uri
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
+        redactedDocument:
+          $ref: "#/components/schemas/DocumentLink"
         status:
           type: string
           enum:
@@ -236,7 +256,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
+        - inputDocument
         - error
         - status
       properties:
@@ -244,8 +264,8 @@ components:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
         error:
           type: string
         status:
@@ -258,15 +278,15 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
+        - inputDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
+        inputDocument:
+          $ref: "#/components/schemas/DocumentLink"
         status:
           type: string
           enum:
@@ -291,13 +311,13 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documents
+        - requests
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documents:
+        requests:
           type: array
           items:
             $ref: "#/components/schemas/RedactionResult"
@@ -307,18 +327,22 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - documentId
-        - documentUrl
+        - document
         - callbackUrl
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        documentId:
-          type: string
-        documentUrl:
-          type: string
+        document:
+          oneOf:
+            - $ref: "#/components/schemas/DocumentLink"
+            - $ref: "#/components/schemas/DocumentText"
+          discriminator:
+            propertyName: attachmentType
+            mapping:
+              LINK: "#/components/schemas/DocumentLink"
+              TEXT: "#/components/schemas/DocumentText"
         callbackUrl:
           type: string
           format: uri

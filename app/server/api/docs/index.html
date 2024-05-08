@@ -880,15 +880,35 @@ ul.nav-tabs {
   "oneOf" : [ ]
 };
     defs["DocumentLink"] = {
-  "required" : [ "documentId", "documentUrl" ],
+  "required" : [ "attachmentType", "documentId", "documentUrl" ],
   "type" : "object",
   "properties" : {
+    "attachmentType" : {
+      "type" : "string",
+      "enum" : [ "LINK" ]
+    },
     "documentId" : {
       "type" : "string"
     },
-    "documentUrl" : {
+    "url" : {
       "type" : "string",
       "format" : "uri"
+    }
+  }
+};
+    defs["DocumentText"] = {
+  "required" : [ "attachmentType", "content", "documentId" ],
+  "type" : "object",
+  "properties" : {
+    "attachmentType" : {
+      "type" : "string",
+      "enum" : [ "TEXT" ]
+    },
+    "documentId" : {
+      "type" : "string"
+    },
+    "content" : {
+      "type" : "string"
     }
   }
 };
@@ -985,7 +1005,7 @@ ul.nav-tabs {
   }
 };
     defs["RedactionRequest"] = {
-  "required" : [ "callbackUrl", "caseId", "documentId", "documentUrl", "jurisdictionId" ],
+  "required" : [ "callbackUrl", "caseId", "document", "jurisdictionId" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -994,17 +1014,28 @@ ul.nav-tabs {
     "caseId" : {
       "type" : "string"
     },
-    "documentId" : {
-      "type" : "string"
-    },
-    "documentUrl" : {
-      "type" : "string"
+    "document" : {
+      "$ref" : "#/components/schemas/RedactionRequest_document"
     },
     "callbackUrl" : {
       "type" : "string",
       "format" : "uri"
     }
   }
+};
+    defs["RedactionRequest_document"] = {
+  "discriminator" : {
+    "propertyName" : "attachmentType",
+    "mapping" : {
+      "LINK" : "#/components/schemas/DocumentLink",
+      "TEXT" : "#/components/schemas/DocumentText"
+    }
+  },
+  "oneOf" : [ {
+    "$ref" : "#/components/schemas/DocumentLink"
+  }, {
+    "$ref" : "#/components/schemas/DocumentText"
+  } ]
 };
     defs["RedactionResult"] = {
   "discriminator" : {
@@ -1025,7 +1056,7 @@ ul.nav-tabs {
   } ]
 };
     defs["RedactionResultError"] = {
-  "required" : [ "caseId", "documentId", "error", "jurisdictionId", "status" ],
+  "required" : [ "caseId", "error", "inputDocument", "jurisdictionId", "status" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -1034,8 +1065,8 @@ ul.nav-tabs {
     "caseId" : {
       "type" : "string"
     },
-    "documentId" : {
-      "type" : "string"
+    "inputDocument" : {
+      "$ref" : "#/components/schemas/DocumentLink"
     },
     "error" : {
       "type" : "string"
@@ -1047,7 +1078,7 @@ ul.nav-tabs {
   }
 };
     defs["RedactionResultPending"] = {
-  "required" : [ "caseId", "documentId", "jurisdictionId", "status" ],
+  "required" : [ "caseId", "inputDocument", "jurisdictionId", "status" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -1056,8 +1087,8 @@ ul.nav-tabs {
     "caseId" : {
       "type" : "string"
     },
-    "documentId" : {
-      "type" : "string"
+    "inputDocument" : {
+      "$ref" : "#/components/schemas/DocumentLink"
     },
     "status" : {
       "type" : "string",
@@ -1066,7 +1097,7 @@ ul.nav-tabs {
   }
 };
     defs["RedactionResultSuccess"] = {
-  "required" : [ "caseId", "documentId", "documentUrl", "jurisdictionId", "status" ],
+  "required" : [ "caseId", "inputDocument", "jurisdictionId", "redactedDocument", "status" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -1075,12 +1106,11 @@ ul.nav-tabs {
     "caseId" : {
       "type" : "string"
     },
-    "documentId" : {
-      "type" : "string"
+    "inputDocument" : {
+      "$ref" : "#/components/schemas/DocumentLink"
     },
-    "documentUrl" : {
-      "type" : "string",
-      "format" : "uri"
+    "redactedDocument" : {
+      "$ref" : "#/components/schemas/DocumentLink"
     },
     "status" : {
       "type" : "string",
@@ -1089,7 +1119,7 @@ ul.nav-tabs {
   }
 };
     defs["RedactionStatus"] = {
-  "required" : [ "caseId", "documents", "jurisdictionId" ],
+  "required" : [ "caseId", "jurisdictionId", "requests" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -1098,7 +1128,7 @@ ul.nav-tabs {
     "caseId" : {
       "type" : "string"
     },
-    "documents" : {
+    "requests" : {
       "type" : "array",
       "items" : {
         "$ref" : "#/components/schemas/RedactionResult"
@@ -1107,7 +1137,7 @@ ul.nav-tabs {
   }
 };
     defs["ReviewMeta"] = {
-  "required" : [ "caseId", "documents", "jurisdictionId", "protocol" ],
+  "required" : [ "caseId", "jurisdictionId", "protocol", "redactedDocuments" ],
   "type" : "object",
   "properties" : {
     "jurisdictionId" : {
@@ -1208,7 +1238,7 @@ ul.nav-tabs {
         <div id="header">
           <div id="api-_">
             <h2 id="welcome-to-apidoc">API and SDK Documentation</h2>
-              <div class="app-desc">Version: 0.0.1</div>
+              <div class="app-desc">Version: 0.0.2</div>
             <hr>
             <div id="app-description" class="app-desc">
                 <p><strong>DRAFT</strong></p>
@@ -2425,8 +2455,11 @@ When finished, the redacted document will be posted to the provided callback URL
  -d '{
   &quot;jurisdictionId&quot; : &quot;jurisdictionId&quot;,
   &quot;caseId&quot; : &quot;caseId&quot;,
-  &quot;documentUrl&quot; : &quot;documentUrl&quot;,
-  &quot;documentId&quot; : &quot;documentId&quot;,
+  &quot;document&quot; : {
+    &quot;attachmentType&quot; : &quot;LINK&quot;,
+    &quot;documentId&quot; : &quot;documentId&quot;,
+    &quot;url&quot; : &quot;https://openapi-generator.tech&quot;
+  },
   &quot;callbackUrl&quot; : &quot;https://openapi-generator.tech&quot;
 }'
 </code></pre>
