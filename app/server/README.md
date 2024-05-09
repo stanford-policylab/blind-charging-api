@@ -1,12 +1,20 @@
-Blind Charging Server
+Blind Charging API Server
 ===
 
-## Code gen
+## Code generation
 
-Most of the code is generated from an OpenAPI schema. (See `./schema`.)
+All of the code in `./generated` is generated from code in `./schema`.
 
-To run code gen, make sure you have the `fastapi-codegen` package installed globally, and then run:
+To run code generation, make sure you have the `fastapi-codegen` repo cloned.
+Note that until Pydantic2 support is merged into the main project,
+we need to use [Joe's fork of the repo](https://github.com/jnu/fastapi-code-generator).
 
 ```
-fastapi-codegen -i schema/api.yaml -o generated -r -t schema/templates -p 3.11 -d pydantic_v2.BaseModel
+poetry run python -m fastapi_code_generator -i ../../stanford-policylab/bc2/app/server/schema/api.yaml -o ../../stanford-policylab/bc2/app/server/generated -r -t ../../stanford-policylab/bc2/app/server/schema/templates -d pydantic_v2.BaseModel -p 3.11
 ```
+
+### Implementations
+
+Code generation takes care of stubs for the API routes.
+To write the implementations,
+add corresponding functions in `./handlers`.

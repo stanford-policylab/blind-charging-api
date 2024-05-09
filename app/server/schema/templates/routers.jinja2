@@ -27,12 +27,12 @@ router = APIRouter(
     {% if operation.tags%}
     , tags={{operation.tags}}
     {% endif %})
-def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operation.return_type}}:
+async def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operation.return_type}}:
     {%- if operation.summary %}
     """
     {{ operation.summary }}
     """
     {%- endif %}
-    return {{tag}}_handler.{{operation.function_name}}(**locals())
+    return await {{tag}}_handler.{{operation.function_name}}(**locals())
 {% endif %}
 {% endfor %}
