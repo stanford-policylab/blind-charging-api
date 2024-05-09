@@ -8,7 +8,7 @@ info:
     **_This is a draft specification, not the final version!_**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.0.2
+  version: 0.0.3
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -159,7 +159,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Outcome"
+              $ref: "#/components/schemas/Review"
       responses:
         "201":
           description: "Accepted"
@@ -360,25 +360,13 @@ components:
           type: string
           format: date-time
 
-    ReviewProtocol:
-      type: string
-      enum:
-        - BLIND_REVIEW
-        - FINAL_REVIEW
-
-    BlindReviewOutcome:
+    ChargeOutcome:
       type: object
-      oneOf:
-        - required: [protocol, chargingDecision, chargingDecisionExplanation]
-        - required: [protocol, disqualifyingReason]
       required:
-        - protocol
+        - outcomeType
+        - chargingDecision
+        - chargingDecisionExplanation
       properties:
-        protocol:
-          type: string
-          enum:
-            - BLIND_REVIEW
-          example: BLIND_REVIEW
         chargingDecision:
           type: string
           enum:
@@ -393,6 +381,18 @@ components:
         additionalEvidence:
           type: string
           example: "The defendant has a history of theft."
+
+    DisqualifyOutcome:
+      type: object
+      required:
+        - outcomeType
+        - disqualifyingReason
+      properties:
+        outcomeType:
+          type: string
+          enum:
+            - DISQUALIFY
+          example: DISQUALIFY
         disqualifyingReason:
           type: string
           enum:
@@ -408,37 +408,56 @@ components:
           type: string
           example: "I have prior knowledge of the individuals involved in this case."
 
-    FinalReviewOutcome:
+    ReviewProtocol:
+      type: string
+      enum:
+        - BLIND_REVIEW
+        - FINAL_REVIEW
+
+    BlindReviewDecision:
       type: object
       required:
         - protocol
-        - chargingDecision
-        - chargingDecisionExplanation
+        - outcome
+      properties:
+        protocol:
+          type: string
+          enum:
+            - BLIND_REVIEW
+          example: BLIND_REVIEW
+        outcome:
+          oneOf:
+            - $ref: "#/components/schemas/ChargeOutcome"
+            - $ref: "#/components/schemas/DisqualifyOutcome"
+          discriminator:
+            propertyName: outcomeType
+            mapping:
+              CHARGE: "#/components/schemas/ChargeOutcome"
+              DISQUALIFY: "#/components/schemas/DisqualifyOutcome"
+
+    FinalReviewDecision:
+      type: object
+      required:
+        - protocol
+        - outcome
       properties:
         protocol:
           type: string
           enum:
             - FINAL_REVIEW
           example: FINAL_REVIEW
-        chargingDecision:
-          type: string
-          enum:
-            - CHARGE
-            - DECLINE
-          example: CHARGE_LIKELY
-        chargingDecisionExplanation:
-          type: string
-          example: "The defendant was caught on camera with the stolen goods."
+        outcome:
+          $ref: "#/components/schemas/ChargeOutcome"
 
-    ReviewOutcome:
+    ReviewDecision:
       oneOf:
-        - $ref: "#/components/schemas/BlindReviewOutcome"
-        - $ref: "#/components/schemas/FinalReviewOutcome"
+        - $ref: "#/components/schemas/BlindReviewDecision"
+        - $ref: "#/components/schemas/FinalReviewDecision"
       discriminator:
         propertyName: protocol
         mapping:
-          BLIND_REVIEW: "#/components/schemas/BlindReviewOutcome"
-          FINAL_REVIEW: "#/components/schemas/FinalReviewOutcome"
+          BLIND_REVIEW: "#/components/schemas/BlindReviewDecision"
+          FINAL_REVIEW: "#/components/schemas/FinalReviewDecision"
 
     Exposure:
       type: object
@@ -469,7 +488,7 @@ components:
         protocol:
           $ref: "#/components/schemas/ReviewProtocol"
 
-    Outcome:
+    Review:
       type: object
       required:
         - jurisdictionId
@@ -478,7 +497,7 @@ components:
         - reviewingAttorneyUserId
         - documentIds
         - protocol
-        - blindReviewOutcome
+        - decision
         - timestamps
       properties:
         jurisdictionId:
@@ -494,7 +513,7 @@ components:
           minItems: 1
           items:
             type: string
-        outcome:
-          $ref: "#/components/schemas/ReviewOutcome"
+        decision:
+          $ref: "#/components/schemas/ReviewDecision"
         timestamps:
           $ref: "#/components/schemas/ReviewTimestamps"

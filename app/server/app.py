@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 
+from .generated import app as generated_app
+
 app = FastAPI()
 
-
-@app.get("/")
-def hello():
-    return "hello!"
+app.mount("/api/v1", generated_app)
