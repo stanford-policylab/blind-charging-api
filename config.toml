@@ -1,0 +1,6 @@
+debug = true
+
+[db]
+engine = "mssql"
+password = "bc2Password"
+database = "blindcharging"
