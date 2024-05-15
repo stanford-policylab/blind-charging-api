@@ -3,12 +3,12 @@ openapi: '3.0.3'
 info:
   title: Blind Charging API
   description: |
-    **DRAFT**
+    Status: **DRAFT**
 
-    **_This is a draft specification, not the final version!_**
+    **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.0.3
+  version: 0.0.4
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -18,8 +18,11 @@ info:
 
 tags:
   - name: redaction
-  - name: workflow
-  - name: bookkeeping
+    description: Operations related to document redaction.
+  - name: review
+    description: Operations related to reviewing documents.
+  - name: experiments
+    description: Operations related to research experiments.
 
 paths:
 
@@ -29,6 +32,9 @@ paths:
       description: |
         Submit a document for redaction. Redaction happens asynchronously and may take some time.
         When finished, the redacted document will be posted to the provided callback URL.
+
+        A callback will be POSTed to the provided URL when the redaction process is completed.
+        The callback will contain a `RedactionResult` (either `RedactionResultSuccess` or `RedactionResultError`).
       tags:
         - redaction
       operationId: redact-document
@@ -59,12 +65,15 @@ paths:
                 "201":
                   description: "Accepted"
 
-  /redact/{jurisdictionId}/{caseId}:
+  /redact/{jurisdictionId}/{caseId}/{defendantId}:
     get:
       summary: Get status of document redaction for a case.
       description: |
         Get the status of redaction for all documents in a case.
         This will return a list of document IDs and their redaction status.
+
+        Generally, the push mechanism provided by the callback URL passed to the `/redact` endpoint should be used to determine when the redaction process is completed.
+        However, this endpoint can be used to poll for the status of redaction if necessary.
       tags:
         - redaction
       operationId: get-redaction-status
@@ -81,6 +90,12 @@ paths:
           description: The case ID
           schema:
             type: string
+        - name: defendantId
+          in: path
+          required: true
+          description: The defendant ID
+          schema:
+            type: string
       responses:
         "200":
           description: "OK"
@@ -89,14 +104,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/RedactionStatus"
 
-  /review/{jurisdictionId}/{caseId}:
+  /blindreview/{jurisdictionId}/{caseId}/{defendantId}:
     get:
-      summary: Get a list of documents to review
+      summary: Get information about blind review for a given defendant in a given case.
       description: |
-        Get a list of documents to review for a case.
+        This endpoint provides information about the blind review process for the given case.
+
+        The payload will indicate whether blind review is required for this case.
+
+        If blind review is required, this endpoint will also provide a list of redacted documents to present for review.
       tags:
-        - workflow
-      operationId: get-review-documents
+        - review
+      operationId: get-blind-review-info
       parameters:
         - name: jurisdictionId
           in: path
@@ -110,13 +129,19 @@ paths:
           description: The case ID
           schema:
             type: string
+        - name: defendantId
+          in: path
+          required: true
+          description: The defendant ID
+          schema:
+            type: string
       responses:
         "200":
           description: "OK"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReviewMeta"
+                $ref: "#/components/schemas/BlindReviewInfo"
         "424":
           description: "Documents are not processed yet"
           content:
@@ -128,11 +153,11 @@ paths:
     post:
       summary: Log an exposure event
       description: |
-        Posting an "exposure" event is required whenever someone views a case.
-        This must happen regardless whether the case is blinded or not.
-        We need to see who is viewing cases and when in order to monitor and improve our application.
+        This endpoint records which information is presented to attorneys and when, prior to them making a decision.
+
+        Sending "exposure" events is required for all cases involved in research experiments, _both for blind review and also final review_.
       tags:
-        - bookkeeping
+        - experiments
       operationId: log-exposure
       requestBody:
         required: true
@@ -148,11 +173,11 @@ paths:
     post:
       summary: Log an outcome event
       description: |
-        Posting an "outcome" event is required whenever someone makes a decision on a case.
-        This must happen regardless whether the case is blinded or not.
-        We need to see who is making decisions and when in order to monitor and improve our application.
+        This endpoint records the charging decisions made by attorneys, both for blind review and final review.
+
+        Sending "outcome" events is required for all cases involved in research experiments, _regardless of whether the case is subject to blind review or not_.
       tags:
-        - bookkeeping
+        - experiments
       operationId: log-outcome
       requestBody:
         required: true
@@ -210,20 +235,23 @@ components:
         content:
           type: string
 
-    ReviewMeta:
+    BlindReviewInfo:
       type: object
       required:
         - jurisdictionId
         - caseId
+        - defendantId
+        - blindReviewRequired
         - redactedDocuments
-        - protocol
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        protocol:
-          $ref: "#/components/schemas/ReviewProtocol"
+        defendantId:
+          type: string
+        blindReviewRequired:
+          type: boolean
         redactedDocuments:
           type: array
           items:
@@ -234,6 +262,7 @@ components:
       required:
         - jurisdictionId
         - caseId
+        - defendantId
         - inputDocument
         - redactedDocument
         - status
@@ -241,6 +270,8 @@ components:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        defendantId:
           type: string
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
@@ -256,6 +287,7 @@ components:
       required:
         - jurisdictionId
         - caseId
+        - defendantId
         - inputDocument
         - error
         - status
@@ -263,6 +295,8 @@ components:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        defendantId:
           type: string
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
@@ -278,12 +312,15 @@ components:
       required:
         - jurisdictionId
         - caseId
+        - defendantId
         - inputDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        defendantId:
           type: string
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
@@ -311,11 +348,14 @@ components:
       required:
         - jurisdictionId
         - caseId
+        - defendantId
         - requests
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        defendantId:
           type: string
         requests:
           type: array
@@ -327,12 +367,15 @@ components:
       required:
         - jurisdictionId
         - caseId
+        - defendantId
         - document
         - callbackUrl
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        defendantId:
           type: string
         document:
           oneOf:
@@ -464,7 +507,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantIds
+        - defendantId
         - reviewingAttorneyUserId
         - documentIds
         - protocol
@@ -473,11 +516,8 @@ components:
           type: string
         caseId:
           type: string
-        defendantIds:
-          type: array
-          minItems: 1
-          items:
-            type: string
+        defendantId:
+          type: string
         reviewingAttorneyUserId:
           type: string
         documentIds:
@@ -504,7 +544,7 @@ components:
           type: string
         caseId:
           type: string
-        defendantIds:
+        defendantId:
           type: string
         reviewingAttorneyUserId:
           type: string

@@ -12,6 +12,29 @@ router = APIRouter(
 
 {% for operation in operations %}
 {% if operation.tags[0] == tag %}
+
+{%- if operation.callbacks|length > 0 -%}
+# Callbacks for {{ operation.function_name }}, supplied here for documentation.
+# See https://fastapi.tiangolo.com/advanced/openapi-callbacks/
+{% for key, cb_ops in operation.callbacks.items() -%}
+_cb_router_{{operation.function_name}} = APIRouter()
+{% for cb_op in cb_ops %}
+@_cb_router_{{operation.function_name}}.{{cb_op.method}}('{{cb_op.path}}', response_model={{cb_op.response}})
+def {{cb_op.function_name}}({{cb_op.snake_case_arguments}}) -> {{cb_op.return_type}}:
+    {%- if cb_op.summary or cb_op.description %}
+    """{{ cb_op.summary }}
+    {%- if cb_op.description %}
+    {{ "\n" }}
+    {{- cb_op.description -}}
+    {%- endif -%}
+    """
+    {% endif -%}
+    pass
+{% endfor -%}
+
+{%- endfor -%}
+{%- endif -%}
+
 @router.{{operation.type}}('{{operation.path}}', response_model={{operation.response}}
     {% if operation.additional_responses %}
         , responses={
@@ -26,13 +49,19 @@ router = APIRouter(
     {% endif %}
     {% if operation.tags%}
     , tags={{operation.tags}}
+    {% endif %}
+    {% if operation.callbacks %}
+    , callbacks=_cb_router_{{ operation.function_name }}.routes
     {% endif %})
 async def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operation.return_type}}:
-    {%- if operation.summary %}
+    {%- if operation.summary or operation.description %}
+    """{{ operation.summary }}
+    {%- if operation.description %}
+    {{ "\n" }}
+    {{- operation.description -}}
+    {%- endif -%}
     """
-    {{ operation.summary }}
-    """
-    {%- endif %}
+    {% endif -%}
     return await {{tag}}_handler.{{operation.function_name}}(**locals())
 {% endif %}
 {% endfor %}
