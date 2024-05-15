@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
-from fastapi import FastAPI
+from fastapi import APIRouter, Request
 
 from ..dependencies import *
 from ..handlers import {{tag}}_handler
@@ -53,7 +52,7 @@ def {{cb_op.function_name}}({{cb_op.snake_case_arguments}}) -> {{cb_op.return_ty
     {% if operation.callbacks %}
     , callbacks=_cb_router_{{ operation.function_name }}.routes
     {% endif %})
-async def {{operation.function_name}}({{operation.snake_case_arguments}}) -> {{operation.return_type}}:
+async def {{operation.function_name}}(request: Request{%if operation.snake_case_arguments%}, {{operation.snake_case_arguments}}{%endif%}) -> {{operation.return_type}}:
     {%- if operation.summary or operation.description %}
     """{{ operation.summary }}
     {%- if operation.description %}

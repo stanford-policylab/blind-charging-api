@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from sqlalchemy import ForeignKey
-from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import BINARY, DateTime, String
 from typing_extensions import Annotated
@@ -23,10 +23,14 @@ def primary_key() -> bytes:
 
 class Base(AsyncAttrs, DeclarativeBase):
     type_annotation_map = {
-        UUID: BINARY(128),
+        UUID: BINARY(16),
         datetime: DateTime(timezone=True),
         str_256: String(256),
     }
+
+    async def save(self, session: AsyncSession) -> None:
+        session.add(self)
+        await session.commit()
 
 
 class File(Base):
