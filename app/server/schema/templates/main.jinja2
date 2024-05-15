@@ -16,7 +16,3 @@ app = FastAPI(
 {% for router in routers -%}
 app.include_router({{router}}.router)
 {% endfor -%}
-
-@app.get("/")
-async def root():
-    return {"message": "Gateway of the App"}

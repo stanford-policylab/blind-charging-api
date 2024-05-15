@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.0.5
+  version: 0.1.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -23,8 +23,32 @@ tags:
     description: Operations related to reviewing documents.
   - name: experiments
     description: Operations related to research experiments.
+  - name: operations
+    description: Operations related to the overall operation of the API.
 
 paths:
+
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Check the health of the API.
+      tags:
+        - operations
+      operationId: health-check
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIStatus"
+        "500":
+          description: "Not OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIStatus"
 
   /redact:
     post:
@@ -33,8 +57,8 @@ paths:
         Submit a document for redaction. Redaction happens asynchronously and may take some time.
         When finished, the redacted document will be posted to the provided callback URL.
 
-        A callback will be POSTed to the provided URL when the redaction process is completed.
-        The callback will contain a `RedactionResult` (either `RedactionResultSuccess` or `RedactionResultError`).
+        A callback will be POSTed to the provided URL when the redaction process is completed for each input document.
+        The callback will contain either `RedactionResultSuccess` or `RedactionResultError`.
       tags:
         - redaction
       operationId: redact-document
@@ -53,19 +77,18 @@ paths:
             post:
               summary: Redaction complete
               description: |
-                This callback is made when the redaction process is complete.
-                The redacted document URL is provided in the response body.
+                This callback is made for each input document when it is finished.
               requestBody:
                 required: true
                 content:
                   application/json:
                     schema:
-                      $ref: "#/components/schemas/RedactionResult"
+                      $ref: "#/components/schemas/RedactionResultCompleted"
               responses:
                 "201":
                   description: "Accepted"
 
-  /redact/{jurisdictionId}/{caseId}/{defendantId}:
+  /redact/{jurisdictionId}/{caseId}:
     get:
       summary: Get status of document redaction for a case.
       description: |
@@ -91,9 +114,9 @@ paths:
           schema:
             type: string
         - name: defendantId
-          in: path
-          required: true
-          description: The defendant ID
+          in: query
+          required: false
+          description: Optionally, filter status by a specific defendant.
           schema:
             type: string
       responses:
@@ -104,9 +127,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/RedactionStatus"
 
-  /blindreview/{jurisdictionId}/{caseId}/{defendantId}:
+  /blindreview/{jurisdictionId}/{caseId}:
     get:
-      summary: Get information about blind review for a given defendant in a given case.
+      summary: Get information about blind review for a given case.
       description: |
         This endpoint provides information about the blind review process for the given case.
 
@@ -130,9 +153,9 @@ paths:
           schema:
             type: string
         - name: defendantId
-          in: path
-          required: true
-          description: The defendant ID
+          in: query
+          required: false
+          description: Optionally, a specific defendant ID to filter by
           schema:
             type: string
       responses:
@@ -240,18 +263,20 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
         - blindReviewRequired
+        - maskedDefendants
         - redactedDocuments
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
         blindReviewRequired:
           type: boolean
+        maskedDefendants:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaskedDefendant"
         redactedDocuments:
           type: array
           items:
@@ -262,7 +287,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
+        - maskedDefendants
         - inputDocument
         - redactedDocument
         - status
@@ -271,8 +296,10 @@ components:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
+        maskedDefendants:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaskedDefendant"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         redactedDocument:
@@ -287,7 +314,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
+        - maskedDefendants
         - inputDocument
         - error
         - status
@@ -296,8 +323,10 @@ components:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
+        maskedDefendants:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaskedDefendant"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         error:
@@ -312,7 +341,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
+        - maskedDefendants
         - inputDocument
         - status
       properties:
@@ -320,8 +349,10 @@ components:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
+        maskedDefendants:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaskedDefendant"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         status:
@@ -330,7 +361,22 @@ components:
             - QUEUED
             - PROCESSING
 
+    RedactionResultCompleted:
+      description: |
+        A completed redaction job. Similar to `RedactionResult`,
+        but where it is not possible to see a result in an incomplete (pending or queued) state.
+      oneOf:
+        - $ref: "#/components/schemas/RedactionResultSuccess"
+        - $ref: "#/components/schemas/RedactionResultError"
+      discriminator:
+        propertyName: status
+        mapping:
+          COMPLETE: "#/components/schemas/RedactionResultSuccess"
+          ERROR: "#/components/schemas/RedactionResultError"
+
     RedactionResult:
+      description: |
+        Information about a redaction job.
       oneOf:
         - $ref: "#/components/schemas/RedactionResultSuccess"
         - $ref: "#/components/schemas/RedactionResultError"
@@ -344,48 +390,100 @@ components:
           PROCESSING: "#/components/schemas/RedactionResultPending"
 
     RedactionStatus:
+      description: |
+        The status of redaction for a case.
       type: object
       required:
         - jurisdictionId
         - caseId
-        - defendantId
         - requests
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
         requests:
           type: array
           items:
             $ref: "#/components/schemas/RedactionResult"
+
+    HumanName:
+      description: A structured representation of someone's name.
+      type: object
+      required:
+        - firstName
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+        suffix:
+          type: string
+
+    MaskedDefendant:
+      description: Mapping between a defendant's ID to their alias.
+      type: object
+      required:
+        - defendantId
+        - alias
+      properties:
+        defendantId:
+          type: string
+        alias:
+          type: string
+
+    Defendant:
+      description: Mapping between a defendant's ID to their name(s).
+      type: object
+      required:
+        - defendantId
+        - name
+      properties:
+        defendantId:
+          type: string
+        name:
+          oneOf:
+            - type: string
+            - $ref: "#/components/schemas/HumanName"
+        aliases:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/HumanName"
 
     RedactionRequest:
       type: object
       required:
         - jurisdictionId
         - caseId
-        - defendantId
-        - document
+        - defendants
+        - documents
         - callbackUrl
       properties:
         jurisdictionId:
           type: string
         caseId:
           type: string
-        defendantId:
-          type: string
-        document:
-          oneOf:
-            - $ref: "#/components/schemas/DocumentLink"
-            - $ref: "#/components/schemas/DocumentText"
-          discriminator:
-            propertyName: attachmentType
-            mapping:
-              LINK: "#/components/schemas/DocumentLink"
-              TEXT: "#/components/schemas/DocumentText"
+        defendants:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Defendant"
+        documents:
+          type: array
+          minItems: 1
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/DocumentLink"
+              - $ref: "#/components/schemas/DocumentText"
+            discriminator:
+              propertyName: attachmentType
+              mapping:
+                LINK: "#/components/schemas/DocumentLink"
+                TEXT: "#/components/schemas/DocumentText"
         callbackUrl:
           type: string
           format: uri
@@ -557,3 +655,11 @@ components:
           $ref: "#/components/schemas/ReviewDecision"
         timestamps:
           $ref: "#/components/schemas/ReviewTimestamps"
+
+    APIStatus:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
