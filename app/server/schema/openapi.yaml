@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.1.0
+  version: 0.1.1
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -501,7 +501,23 @@ components:
           type: string
           format: date-time
 
-    ChargeOutcome:
+    FinalChargeOutcome:
+      type: object
+      required:
+        - chargingDecision
+      properties:
+        chargingDecision:
+          description: The final charging decision.
+          type: string
+          enum:
+            - CHARGE
+            - DECLINE
+          example: CHARGE
+        chargingDecisionExplanation:
+          type: string
+          example: "The defendant was caught on camera with the stolen goods."
+
+    BlindChargeOutcome:
       type: object
       required:
         - outcomeType
@@ -568,12 +584,12 @@ components:
           example: BLIND_REVIEW
         outcome:
           oneOf:
-            - $ref: "#/components/schemas/ChargeOutcome"
+            - $ref: "#/components/schemas/BlindChargeOutcome"
             - $ref: "#/components/schemas/DisqualifyOutcome"
           discriminator:
             propertyName: outcomeType
             mapping:
-              CHARGE: "#/components/schemas/ChargeOutcome"
+              CHARGE: "#/components/schemas/BlindChargeOutcome"
               DISQUALIFY: "#/components/schemas/DisqualifyOutcome"
 
     FinalReviewDecision:
@@ -588,7 +604,7 @@ components:
             - FINAL_REVIEW
           example: FINAL_REVIEW
         outcome:
-          $ref: "#/components/schemas/ChargeOutcome"
+          $ref: "#/components/schemas/FinalChargeOutcome"
 
     ReviewDecision:
       oneOf:
