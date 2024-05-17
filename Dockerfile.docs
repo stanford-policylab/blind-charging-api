@@ -21,6 +21,6 @@ COPY app/ /code/app
 COPY lib/ /code/lib
 
 # Install dependencies
-RUN poetry install --only main --no-interaction --no-ansi
+RUN poetry install --without dev --with server --no-interaction --no-ansi
 
 CMD ["gunicorn", "app:docs", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:$PORT", "--workers", "4"]
