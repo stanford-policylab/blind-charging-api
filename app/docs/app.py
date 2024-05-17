@@ -2,8 +2,8 @@ import os
 
 import aiohttp
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_sso.sso.github import GithubSSO, OpenID
 
 from ..server.generated import app as generated_app
@@ -34,8 +34,9 @@ async def validate_token(request: Request, call_next):
         return redirect_response
 
     if not payload.get("perms", {}).get(app_repo, False):
-        raise HTTPException(
-            status_code=403, detail="You do not have permission to access this page."
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "You do not have permission to access this repo"},
         )
 
     request.state.user = payload["user"]
