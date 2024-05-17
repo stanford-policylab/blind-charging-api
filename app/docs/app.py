@@ -12,6 +12,7 @@ app = FastAPI()
 
 DEFAULT_SECRET = "not a real secret!"
 app_secret: str = os.getenv("GITHUB_CLIENT_SECRET", DEFAULT_SECRET)
+app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/bc2")
 
 
 @generated_app.middleware("http")
@@ -32,8 +33,10 @@ async def validate_token(request: Request, call_next):
     if not payload["user"]["id"]:
         return redirect_response
 
-    if not payload.get("perms", {}).get("bc2", False):
-        return redirect_response
+    if not payload.get("perms", {}).get(app_repo, False):
+        raise HTTPException(
+            status_code=403, detail="You do not have permission to access this page."
+        )
 
     request.state.user = payload["user"]
     request.state.perms = payload["perms"]
@@ -81,7 +84,7 @@ async def check_repo_perm(user: OpenID, repo: str) -> bool:
             }
         )
         async with session.get(
-            f"https://api.github.com/repos/stanford-policylab/{repo}/collaborators/{username}"
+            f"https://api.github.com/repos/{repo}/collaborators/{username}"
         ) as response:
             if response.status == 204:
                 return True
@@ -98,12 +101,7 @@ async def sso_github_callback(
     request: Request, github_sso: GithubSSO = GithubSSODependency
 ):
     user = await github_sso.verify_and_process(request)
-    can_see_bc2 = await check_repo_perm(user, "bc2")
-
-    if not can_see_bc2:
-        raise HTTPException(
-            status_code=403, detail="You do not have permission to access this page."
-        )
+    can_see_repo = await check_repo_perm(user, app_repo)
 
     # Set a signed cookie with the user's information
     token = jwt.encode(
@@ -114,7 +112,7 @@ async def sso_github_callback(
                 "email": user.email,
             },
             "perms": {
-                "bc2": can_see_bc2,
+                app_repo: can_see_repo,
             },
         },
         app_secret,
