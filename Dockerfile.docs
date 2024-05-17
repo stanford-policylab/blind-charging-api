@@ -23,4 +23,4 @@ COPY lib/ /code/lib
 # Install dependencies
 RUN poetry install --without dev --with server --no-interaction --no-ansi
 
-CMD ["gunicorn", "app:docs", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:$PORT", "--workers", "4"]
+CMD gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 4

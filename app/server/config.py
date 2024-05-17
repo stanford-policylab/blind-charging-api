@@ -4,21 +4,24 @@ from pathlib import Path
 from typing import Union
 
 import tomllib
-from glowplug import MsSqlSettings
+from glowplug import MsSqlSettings, SqliteSettings
 from pydantic_settings import BaseSettings
 
-DbConfig = Union[MsSqlSettings]
+logger = logging.getLogger(__name__)
+
+DbConfig = Union[MsSqlSettings, SqliteSettings]
 
 
 class Config(BaseSettings):
     debug: bool = False
-    db: DbConfig
+    db: DbConfig = SqliteSettings(engine="sqlite")
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
     """Load the configuration from a TOML file."""
     if not Path(path).exists():
-        raise FileNotFoundError(f"Config file not found: {path}")
+        logger.warning(f"Config file not found: {path}")
+        return Config()
     raw_cfg = Path(path).read_text()
     cfg = tomllib.loads(raw_cfg)
     return Config.model_validate(cfg)
