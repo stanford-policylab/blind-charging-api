@@ -13,11 +13,16 @@ app = FastAPI()
 DEFAULT_SECRET = "not a real secret!"
 app_secret: str = os.getenv("GITHUB_CLIENT_SECRET", DEFAULT_SECRET)
 app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/bc2")
+secure: bool = os.getenv("VALIDATE_TOKEN", "true").lower() in {"true", "1", "on"}
 
 
 @generated_app.middleware("http")
 async def validate_token(request: Request, call_next):
     """Validate that the requester has a valid auth cookie."""
+    if not secure:
+        # Skip validation if the environment variable is not set (e.g. in local dev)
+        return await call_next(request)
+
     redirect_response = RedirectResponse(url="/sso/github/login")
     token = request.cookies.get("token")
     if not token:

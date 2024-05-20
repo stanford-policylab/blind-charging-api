@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.1.1
+  version: 0.1.2
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -113,10 +113,10 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: defendantId
+        - name: accusedId
           in: query
           required: false
-          description: Optionally, filter status by a specific defendant.
+          description: Optionally, filter status by a specific accused.
           schema:
             type: string
       responses:
@@ -152,10 +152,10 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: defendantId
+        - name: accusedId
           in: query
           required: false
-          description: Optionally, a specific defendant ID to filter by
+          description: Optionally, a specific accused ID to filter by
           schema:
             type: string
       responses:
@@ -264,7 +264,7 @@ components:
         - jurisdictionId
         - caseId
         - blindReviewRequired
-        - maskedDefendants
+        - maskedAccuseds
         - redactedDocuments
       properties:
         jurisdictionId:
@@ -273,10 +273,10 @@ components:
           type: string
         blindReviewRequired:
           type: boolean
-        maskedDefendants:
+        maskedAccuseds:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedDefendant"
+            $ref: "#/components/schemas/MaskedAccused"
         redactedDocuments:
           type: array
           items:
@@ -287,7 +287,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedDefendants
+        - maskedAccuseds
         - inputDocument
         - redactedDocument
         - status
@@ -296,10 +296,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedDefendants:
+        maskedAccuseds:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedDefendant"
+            $ref: "#/components/schemas/MaskedAccused"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         redactedDocument:
@@ -314,7 +314,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedDefendants
+        - maskedAccuseds
         - inputDocument
         - error
         - status
@@ -323,10 +323,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedDefendants:
+        maskedAccuseds:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedDefendant"
+            $ref: "#/components/schemas/MaskedAccused"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         error:
@@ -341,7 +341,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedDefendants
+        - maskedAccuseds
         - inputDocument
         - status
       properties:
@@ -349,10 +349,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedDefendants:
+        maskedAccuseds:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedDefendant"
+            $ref: "#/components/schemas/MaskedAccused"
         inputDocument:
           $ref: "#/components/schemas/DocumentLink"
         status:
@@ -422,26 +422,26 @@ components:
         suffix:
           type: string
 
-    MaskedDefendant:
-      description: Mapping between a defendant's ID to their alias.
+    MaskedAccused:
+      description: Mapping between a accused's ID to their alias.
       type: object
       required:
-        - defendantId
+        - accusedId
         - alias
       properties:
-        defendantId:
+        accusedId:
           type: string
         alias:
           type: string
 
-    Defendant:
-      description: Mapping between a defendant's ID to their name(s).
+    Accused:
+      description: Mapping between a accused's ID to their name(s).
       type: object
       required:
-        - defendantId
+        - accusedId
         - name
       properties:
-        defendantId:
+        accusedId:
           type: string
         name:
           oneOf:
@@ -459,7 +459,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendants
+        - accuseds
         - documents
         - callbackUrl
       properties:
@@ -467,11 +467,11 @@ components:
           type: string
         caseId:
           type: string
-        defendants:
+        accuseds:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/Defendant"
+            $ref: "#/components/schemas/Accused"
         documents:
           type: array
           minItems: 1
@@ -504,27 +504,27 @@ components:
     FinalChargeOutcome:
       type: object
       required:
-        - chargingDecision
+        - finalChargingDecision
       properties:
-        chargingDecision:
+        finalChargingDecision:
           description: The final charging decision.
           type: string
           enum:
             - CHARGE
             - DECLINE
           example: CHARGE
-        chargingDecisionExplanation:
+        finalChargingDecisionExplanation:
           type: string
-          example: "The defendant was caught on camera with the stolen goods."
+          example: "The accused was caught on camera with the stolen goods."
 
     BlindChargeOutcome:
       type: object
       required:
         - outcomeType
-        - chargingDecision
-        - chargingDecisionExplanation
+        - blindChargingDecision
       properties:
-        chargingDecision:
+        blindChargingDecision:
+          description: The likely charging decision after blind review.
           type: string
           enum:
             - CHARGE_LIKELY
@@ -532,12 +532,12 @@ components:
             - DECLINE_MAYBE
             - DECLINE_LIKELY
           example: CHARGE_LIKELY
-        chargingDecisionExplanation:
+        blindChargingDecisionExplanation:
           type: string
-          example: "The defendant was caught on camera with the stolen goods."
+          example: "The accused was caught on camera with the stolen goods."
         additionalEvidence:
           type: string
-          example: "The defendant has a history of theft."
+          example: "The accused has a history of theft."
 
     DisqualifyOutcome:
       type: object
@@ -621,8 +621,8 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
-        - reviewingAttorneyUserId
+        - accusedId
+        - reviewingAttorneyMaskedId
         - documentIds
         - protocol
       properties:
@@ -630,9 +630,9 @@ components:
           type: string
         caseId:
           type: string
-        defendantId:
+        accusedId:
           type: string
-        reviewingAttorneyUserId:
+        reviewingAttorneyMaskedId:
           type: string
         documentIds:
           type: array
@@ -647,8 +647,8 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - defendantId
-        - reviewingAttorneyUserId
+        - accusedId
+        - reviewingAttorneyMaskedId
         - documentIds
         - protocol
         - decision
@@ -658,9 +658,9 @@ components:
           type: string
         caseId:
           type: string
-        defendantId:
+        accusedId:
           type: string
-        reviewingAttorneyUserId:
+        reviewingAttorneyMaskedId:
           type: string
         documentIds:
           type: array
