@@ -1,17 +1,15 @@
 import asyncio
 import base64
 import logging
-from typing import Tuple
 from urllib.parse import urlparse
 
 import aiohttp
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request
 from nameparser import HumanName
 from sqlalchemy import select
-from starlette.background import BackgroundTask
 
 from ..config import config
-from ..db import Alias, File, JobStatus, Redaction, Subject, SubjectFile, Task, nowts
+from ..db import Alias, Subject, SubjectDocument, Task, nowts
 from ..generated.models import (
     Document,
     DocumentContent,
@@ -23,11 +21,12 @@ from ..generated.models import (
     RedactionResultPending,
     RedactionResultSuccess,
     RedactionStatus,
+    RedactionTarget,
 )
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..time import expire_h
+from ..tasks import RedactionTask, RedactionTaskResult, get_result, redact
 
 logger = logging.getLogger(__name__)
 
@@ -71,138 +70,122 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
-    validate_callback_url(str(body.callbackUrl) if body.callbackUrl else None)
+    subject_ids = set[str]()
+    # Process the individuals submitted with the request
+    for subj in body.subjects:
+        subject = process_subject(subj)
+        for doc in body.objects:
+            request.state.db.add(
+                SubjectDocument(
+                    subject=subject,
+                    document_id=doc.document.root.documentId,
+                    role=subj.role,
+                )
+            )
+        request.state.db.add(subj)
+        subject_ids.add(subj.subject_id)
+
     # Create a task for each document. Do this concurrently since the files will
     # often be on remote servers that we can fetch simultaneously.
-    results = await asyncio.gather(
+    subj_ids_list = list(subject_ids)
+    task_params_list = await asyncio.gather(
         *[
             create_document_redaction_task(
-                body.jurisdictionId, body.caseId, doc, body.callbackUrl
+                body.jurisdictionId, body.caseId, subj_ids_list, obj
             )
-            for doc in body.documents
+            for obj in body.objects
         ]
     )
 
-    # Save sujects / files to the database
-    files = [obj for obj, _ in results if isinstance(obj, File)]
-    for relation in await process_subjects(body.subjects, files):
-        request.state.db.add(relation)
-
-    # Save the tasks to the database
-    new_tasks = 0
-    for new_objects in results:
-        for object in new_objects:
-            if isinstance(object, Task):
-                new_tasks += 1
-            request.state.db.add(object)
-
-    logger.debug(f"Created {new_tasks} redaction task(s).")
-    response = Response(status_code=202)
-    if new_tasks:
-        logger.debug("Scheduling a background task to check for work.")
-        # Schedule this in the background because we need to commit the session
-        # before the work will be available in the queue. The background task
-        # will execute after the request is complete / the response is sent.
-        response.background = BackgroundTask(request.state.redaction_processor.check)
-    return response
+    # Create a task for each document
+    for task_params in task_params_list:
+        task_id = redact.delay(task_params)
+        logger.debug(f"Created redaction task {task_id}.")
+        # Save the task to the database
+        request.state.db.add(
+            Task(
+                task_id=task_id,
+                case_id=task_params.case_id,
+                jurisdiction_id=task_params.jurisdiction_id,
+                document_id=task_params.document_id,
+            )
+        )
 
 
-async def process_subjects(
-    subjects: list[SubjectModel], files: list[File]
-) -> list[SubjectFile]:
-    """Process a list of subjects and files into database objects.
+def process_subject(subject: SubjectModel) -> Subject:
+    """Process a subject for the database
 
     Args:
         subjects (list[SubjectModel]): The subjects to process.
-        files (list[File]): The files to attach to the subjects.
 
     Returns:
-        list[SubjectFile]: The relations between subjects and files.
+        Subject: The processed subject.
     """
-    relations: list[SubjectFile] = []
-    for subject in subjects:
-        aliases: list[Alias] = []
-        all_aliases = [subject.subject.name] + (subject.subject.aliases or [])
-        for i, alias in enumerate(all_aliases):
-            if isinstance(alias, str):
-                parsed_name = HumanName(alias)
-                aliases.append(
-                    Alias(
-                        primary=nowts() if i == 0 else None,
-                        first_name=parsed_name.first,
-                        middle_name=parsed_name.middle,
-                        last_name=parsed_name.last,
-                        suffix=parsed_name.suffix,
-                        title=parsed_name.title,
-                        nickname=parsed_name.nickname,
-                    )
+    aliases: list[Alias] = []
+    all_aliases = [subject.subject.name] + (subject.subject.aliases or [])
+    for i, alias in enumerate(all_aliases):
+        if isinstance(alias, str):
+            parsed_name = HumanName(alias)
+            aliases.append(
+                Alias(
+                    primary=nowts() if i == 0 else None,
+                    first_name=parsed_name.first,
+                    middle_name=parsed_name.middle,
+                    last_name=parsed_name.last,
+                    suffix=parsed_name.suffix,
+                    title=parsed_name.title,
+                    nickname=parsed_name.nickname,
                 )
-            else:
-                aliases.append(
-                    Alias(
-                        primary=nowts() if i == 0 else None,
-                        first_name=alias.firstName,
-                        middle_name=alias.middleName,
-                        last_name=alias.lastName,
-                        suffix=alias.suffix,
-                        title=alias.title,
-                        nickname=alias.nickname,
-                    )
-                )
-
-        subj = Subject(
-            external_id=subject.subject.subjectId,
-            aliases=aliases,
-        )
-        for file in files:
-            subj_file = SubjectFile(
-                subject=subj,
-                file=file,
-                role=subject.role,
             )
-            relations.append(subj_file)
+        else:
+            aliases.append(
+                Alias(
+                    primary=nowts() if i == 0 else None,
+                    first_name=alias.firstName,
+                    middle_name=alias.middleName,
+                    last_name=alias.lastName,
+                    suffix=alias.suffix,
+                    title=alias.title,
+                    nickname=alias.nickname,
+                )
+            )
 
-    return relations
+    return Subject(
+        subject_id=subject.subject.subjectId,
+        aliases=aliases,
+    )
 
 
 async def create_document_redaction_task(
-    jurisdiction_id: str, case_id: str, doc: Document, callback_url: str | None = None
-) -> Tuple[File, Task]:
+    jurisdiction_id: str, case_id: str, subject_ids: list[str], object: RedactionTarget
+) -> RedactionTask:
     """Create database objects representing a document redaction task.
 
     Args:
         jurisdiction_id (str): The jurisdiction ID.
         case_id (str): The case ID.
-        doc (Document): The document to redact.
-        callback_url (str, optional): The URL to call when the task is complete.
+        subject_ids (list[str]): The IDs of the subjects to redact.
+        object (RedactionTarget): The document to redact.
 
     Returns:
-        Tuple[File, Task]: The file and task objects.
+        RedactionTask: The task parameters.
     """
     try:
-        content = await fetch_document_content(doc)
+        # TODO: Fetch the document content in a background task?
+        content = await fetch_document_content(object.document)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    # Insert document into database
-    file = File(
-        external_id=doc.root.documentId,
+    task_params = RedactionTask(
+        document_id=object.document.root.documentId,
+        file_bytes=content,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
-        content=content,
+        callback_url=object.callbackUrl,
+        target_blob_url=object.targetBlobUrl,
+        subject_ids=subject_ids,
     )
-
-    # Create a placeholder redaction
-    redaction = Redaction(file=file)
-
-    # Create a task to process this document
-    task = Task(
-        redaction=redaction,
-        callback_url=str(callback_url) if callback_url else None,
-        expires_at=expire_h(hours=config.task.retention_hours),
-    )
-
-    return (file, task)
+    return task_params
 
 
 async def fetch_document_content(doc: Document) -> bytes:
@@ -253,23 +236,32 @@ async def get_redaction_status(
     redaction_results = list[RedactionResult]()
 
     # Get the redaction status from the database
-    files_q = select(File).filter(
-        File.jurisdiction_id == jurisdiction_id, File.case_id == case_id
+    tasks_q = select(Task).filter(
+        Task.jurisdiction_id == jurisdiction_id, Task.case_id == case_id
     )
-    files_result = await request.state.db.execute(files_q)
-    for file in files_result.scalars().all():
-        latest_redaction = await file.latest_redaction(request.state.db)
-        if not latest_redaction:
-            raise ValueError(f"No redaction found for file {file.external_id}")
-        latest_job = await latest_redaction.task.latest_job(request.state.db)
+    tasks_result = await request.state.db.execute(tasks_q)
+    tasks = tasks_result.scalars().all()
+    document_ids = [task.document_id for task in tasks]
+    masks_q = select(SubjectDocument).filter(
+        SubjectDocument.document_id.in_(document_ids)
+    )
 
+    masks_result = await request.state.db.execute(masks_q)
+    subjects_map: dict[str, list[SubjectDocument]] = {}
+    for mask in masks_result.scalars().all():
+        subjects_map.setdefault(mask.document_id, []).append(mask)
+
+    for task in tasks:
         masked_subjects = [
-            MaskedSubject(subjectId=fs.subject.external_id, alias=fs.mask or "")
-            for fs in file.masked_subjects
+            MaskedSubject(subjectId=fs.subject.subject_id, alias=fs.mask or "")
+            for fs in subjects_map.get(task.document_id, [])
         ]
 
+        # Get the status of the task from celery
+        task_result = get_result(task.task_id)
+
         # The job should exist, but if it doesn't, we'll just assume it's queued.
-        if not latest_job:
+        if not task_result:
             redaction_results.append(
                 RedactionResult(
                     RedactionResultPending(
@@ -282,8 +274,8 @@ async def get_redaction_status(
             )
             continue
 
-        match latest_job.status:
-            case JobStatus.queued:
+        match task_result.status:
+            case "PENDING" | "RETRY":
                 redaction_results.append(
                     RedactionResult(
                         RedactionResultPending(
@@ -294,7 +286,7 @@ async def get_redaction_status(
                         )
                     )
                 )
-            case JobStatus.processing:
+            case "STARTED":
                 redaction_results.append(
                     RedactionResult(
                         RedactionResultPending(
@@ -305,7 +297,7 @@ async def get_redaction_status(
                         )
                     )
                 )
-            case JobStatus.success:
+            case "SUCCESS":
                 redaction_results.append(
                     RedactionResult(
                         RedactionResultSuccess(
@@ -313,11 +305,11 @@ async def get_redaction_status(
                             caseId=case_id,
                             maskedSubjects=masked_subjects,
                             status="COMPLETE",
-                            redactedDocument=format_document(latest_redaction),
+                            redactedDocument=format_document(task_result.result()),
                         )
                     )
                 )
-            case JobStatus.error:
+            case "FAILURE":
                 redaction_results.append(
                     RedactionResult(
                         RedactionResultError(
@@ -325,12 +317,12 @@ async def get_redaction_status(
                             caseId=case_id,
                             maskedSubjects=masked_subjects,
                             status="ERROR",
-                            error=latest_job.error,
+                            error=str(task_result.result()),
                         )
                     )
                 )
             case _:
-                raise ValueError(f"Unknown job status: {latest_job.status}")
+                raise ValueError(f"Unknown job status: {task_result.status}")
 
     return RedactionStatus(
         jurisdictionId=jurisdiction_id,
@@ -339,16 +331,16 @@ async def get_redaction_status(
     )
 
 
-def format_document(redaction: Redaction) -> Document:
+def format_document(redaction: RedactionTaskResult) -> Document:
     """Format a redacted document for the API response.
 
     Args:
-        redaction (Redaction): The redaction object.
+        redaction (RedactionTaskResult): The redaction results.
 
     Returns:
         Document: The formatted document.
     """
-    document_id = redaction.file.external_id
+    document_id = redaction.document_id
     if redaction.external_link:
         return Document(
             root=DocumentLink(
@@ -358,6 +350,8 @@ def format_document(redaction: Redaction) -> Document:
             )
         )
     else:
+        if not redaction.content:
+            raise ValueError("No redacted content")
         return Document(
             root=DocumentContent(
                 documentId=document_id,

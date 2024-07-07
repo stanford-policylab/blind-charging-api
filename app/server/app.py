@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import config
 from .db_ops import init_db
 from .generated import app as generated_app
-from .tasks import CallbackProcessor, RedactionProcessor
+from .old_tasks import CallbackProcessor, RedactionProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,12 @@ async def log_request(request: Request, call_next):
                 f"{request.method} {request.url.path} "
                 f"{request.client.host} {elapsed:.2f}s"
             )
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "ok"}
 
 
 if config.debug:

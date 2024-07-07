@@ -21,10 +21,15 @@ class TaskConfig(BaseModel):
     link_download_timeout_seconds: float = 30.0
 
 
+class QueueConfig(BaseModel):
+    broker_url: str = "redis://localhost:6379/0"
+
+
 class Config(BaseSettings):
     debug: bool = False
     db: DbConfig = SqliteSettings(engine="sqlite")
     task: TaskConfig = TaskConfig()
+    queue: QueueConfig = QueueConfig()
     automigrate: bool = False
 
 
