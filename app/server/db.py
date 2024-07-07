@@ -62,7 +62,7 @@ class SubjectDocument(Base):
     subject_id: Mapped[str] = mapped_column(
         ForeignKey("subject.subject_id"), index=True
     )
-    subject: Mapped["Subject"] = relationship(lazy="joined")
+    subject: Mapped["Subject"] = relationship(lazy="joined", back_populates="documents")
     document_id: Mapped[str] = mapped_column(index=True)
     role: Mapped[str_256]
     mask: Mapped[str_256] = mapped_column(nullable=True)
@@ -100,7 +100,7 @@ class Alias(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     primary: Mapped[datetime] = mapped_column(nullable=True)
-    subject_id: Mapped[str_256] = mapped_column(ForeignKey("subject.id"))
+    subject_id: Mapped[str_256] = mapped_column(ForeignKey("subject.subject_id"))
     subject: Mapped["Subject"] = relationship(back_populates="aliases")
     title: Mapped[str_256] = mapped_column(nullable=True)
     first_name: Mapped[str_256] = mapped_column(nullable=True)

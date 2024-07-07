@@ -4,6 +4,7 @@ from blind_charging_core import Pipeline, PipelineConfig
 from pydantic import BaseModel
 
 from .queue import queue
+from .serializer import register_type
 
 
 class RedactionTask(BaseModel):
@@ -11,14 +12,18 @@ class RedactionTask(BaseModel):
     file_bytes: bytes
     jurisdiction_id: str
     case_id: str
-    callback_url: str
-    target_blob_url: str
+    callback_url: str | None = None
+    target_blob_url: str | None = None
 
 
 class RedactionTaskResult(BaseModel):
     document_id: str
     external_link: str | None = None
     content: bytes | None = None
+
+
+register_type(RedactionTask)
+register_type(RedactionTaskResult)
 
 
 @queue.task(task_track_started=True, task_time_limit=300, task_soft_time_limit=240)

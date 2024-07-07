@@ -70,20 +70,24 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
+    logger.debug(f"Received redaction request for {body.jurisdictionId}-{body.caseId}")
+
     subject_ids = set[str]()
     # Process the individuals submitted with the request
     for subj in body.subjects:
         subject = process_subject(subj)
         for doc in body.objects:
-            request.state.db.add(
+            subject.documents.append(
                 SubjectDocument(
-                    subject=subject,
+                    subject_id=subject.subject_id,
                     document_id=doc.document.root.documentId,
                     role=subj.role,
                 )
             )
-        request.state.db.add(subj)
-        subject_ids.add(subj.subject_id)
+        request.state.db.add(subject)
+        subject_ids.add(subject.subject_id)
+
+    logger.debug(f"Processed {len(subject_ids)} subjects.")
 
     # Create a task for each document. Do this concurrently since the files will
     # often be on remote servers that we can fetch simultaneously.
@@ -104,7 +108,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         # Save the task to the database
         request.state.db.add(
             Task(
-                task_id=task_id,
+                task_id=str(task_id),
                 case_id=task_params.case_id,
                 jurisdiction_id=task_params.jurisdiction_id,
                 document_id=task_params.document_id,
@@ -150,6 +154,8 @@ def process_subject(subject: SubjectModel) -> Subject:
                 )
             )
 
+    logger.debug(f"Processed {len(aliases)} aliases for {subject.subject.subjectId}.")
+
     return Subject(
         subject_id=subject.subject.subjectId,
         aliases=aliases,
@@ -170,6 +176,11 @@ async def create_document_redaction_task(
     Returns:
         RedactionTask: The task parameters.
     """
+    callback_url = str(object.callbackUrl) if object.callbackUrl else None
+    target_blob_url = str(object.targetBlobUrl) if object.targetBlobUrl else None
+    validate_callback_url(callback_url)
+    validate_callback_url(target_blob_url)
+
     try:
         # TODO: Fetch the document content in a background task?
         content = await fetch_document_content(object.document)
@@ -181,10 +192,11 @@ async def create_document_redaction_task(
         file_bytes=content,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
-        callback_url=object.callbackUrl,
-        target_blob_url=object.targetBlobUrl,
+        callback_url=callback_url,
+        target_blob_url=target_blob_url,
         subject_ids=subject_ids,
     )
+
     return task_params
 
 
@@ -248,7 +260,7 @@ async def get_redaction_status(
 
     masks_result = await request.state.db.execute(masks_q)
     subjects_map: dict[str, list[SubjectDocument]] = {}
-    for mask in masks_result.scalars().all():
+    for mask in masks_result.scalars().unique():
         subjects_map.setdefault(mask.document_id, []).append(mask)
 
     for task in tasks:
@@ -305,7 +317,7 @@ async def get_redaction_status(
                             caseId=case_id,
                             maskedSubjects=masked_subjects,
                             status="COMPLETE",
-                            redactedDocument=format_document(task_result.result()),
+                            redactedDocument=format_document(task_result.result),
                         )
                     )
                 )
@@ -317,7 +329,7 @@ async def get_redaction_status(
                             caseId=case_id,
                             maskedSubjects=masked_subjects,
                             status="ERROR",
-                            error=str(task_result.result()),
+                            error=str(task_result.result),
                         )
                     )
                 )

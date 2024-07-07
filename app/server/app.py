@@ -8,7 +8,6 @@ from sqlalchemy.exc import IntegrityError
 from .config import config
 from .db_ops import init_db
 from .generated import app as generated_app
-from .old_tasks import CallbackProcessor, RedactionProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +29,7 @@ async def lifespan(api: FastAPI):
         logger.info("Applying any pending database migrations ...")
         config.db.driver.alembic.upgrade("head")
 
-    async with RedactionProcessor() as redaction_p, CallbackProcessor() as callback_p:
-        api.state.redaction_processor = redaction_p
-        api.state.callback_processor = callback_p
-        yield
+    yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -48,23 +44,17 @@ async def handle_exception(request: Request, exc: Exception):
             content={"detail": exc.detail},
         )
     elif isinstance(exc, IntegrityError):
+        logger.debug("IntegrityError: %s", exc)
         return JSONResponse(
             status_code=400,
             content={"detail": "Record already exists."},
         )
     else:
+        logger.exception("Unhandled exception: %s", exc)
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error."},
         )
-
-
-@app.middleware("http")
-async def add_background_tasks(request: Request, call_next):
-    """Add a background task to the request state."""
-    request.state.redaction_processor = request.app.state.redaction_processor
-    request.state.callback_processor = request.app.state.callback_processor
-    return await call_next(request)
 
 
 @generated_app.middleware("http")
@@ -99,12 +89,6 @@ async def log_request(request: Request, call_next):
                 f"{request.method} {request.url.path} "
                 f"{request.client.host} {elapsed:.2f}s"
             )
-
-
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
 
 
 if config.debug:
