@@ -3,13 +3,13 @@ import io
 from blind_charging_core import Pipeline, PipelineConfig
 from pydantic import BaseModel
 
+from .fetch import FetchTaskResult
 from .queue import queue
 from .serializer import register_type
 
 
 class RedactionTask(BaseModel):
     document_id: str
-    file_bytes: bytes
     jurisdiction_id: str
     case_id: str
     callback_url: str | None = None
@@ -27,7 +27,7 @@ register_type(RedactionTaskResult)
 
 
 @queue.task(task_track_started=True, task_time_limit=300, task_soft_time_limit=240)
-def redact(params: RedactionTask) -> RedactionTaskResult:
+def redact(fetch_result: FetchTaskResult, params: RedactionTask) -> RedactionTaskResult:
     """Redact a document."""
     # NOTE(jnu): for now this is just a playground implementation.
     pipeline_cfg = PipelineConfig.model_validate(
@@ -53,18 +53,20 @@ def redact(params: RedactionTask) -> RedactionTaskResult:
         }
     )
     pipeline = Pipeline(pipeline_cfg)
-    input_buffer = io.BytesIO(params.file_bytes)
+    input_buffer = io.BytesIO(fetch_result.file_bytes)
     output_buffer = io.BytesIO()
-    pipeline.run(
+    # pipeline.run(
+    output_buffer, _ = pipeline.run(
         {
-            "in": {"buffer": input_buffer},
-            "out": {"buffer": output_buffer},
+            # "in": {"buffer": input_buffer},
+            # "out": {"buffer": output_buffer},
+            "input_buffer": input_buffer,
+            # "output_buffer": output_buffer
         }
     )
 
     content = output_buffer.getvalue()
 
-    # TODO (jnu): upload the content to the target_blob_url if passed
     return RedactionTaskResult(
         document_id=params.document_id,
         content=content,

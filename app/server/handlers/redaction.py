@@ -1,9 +1,7 @@
-import asyncio
-import base64
 import logging
 from urllib.parse import urlparse
 
-import aiohttp
+from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
 from sqlalchemy import select
@@ -11,9 +9,6 @@ from sqlalchemy import select
 from ..config import config
 from ..db import Alias, Subject, SubjectDocument, Task, nowts
 from ..generated.models import (
-    Document,
-    DocumentContent,
-    DocumentLink,
     MaskedSubject,
     RedactionRequest,
     RedactionResult,
@@ -26,7 +21,16 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..tasks import RedactionTask, RedactionTaskResult, get_result, redact
+from ..tasks import (
+    CallbackTask,
+    FetchTask,
+    RedactionTask,
+    callback,
+    fetch,
+    get_result,
+    redact,
+)
+from ..tasks.callback import format_document
 
 logger = logging.getLogger(__name__)
 
@@ -86,32 +90,24 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
             )
         request.state.db.add(subject)
         subject_ids.add(subject.subject_id)
-
-    logger.debug(f"Processed {len(subject_ids)} subjects.")
-
-    # Create a task for each document. Do this concurrently since the files will
-    # often be on remote servers that we can fetch simultaneously.
     subj_ids_list = list(subject_ids)
-    task_params_list = await asyncio.gather(
-        *[
-            create_document_redaction_task(
-                body.jurisdictionId, body.caseId, subj_ids_list, obj
-            )
-            for obj in body.objects
-        ]
-    )
 
     # Create a task for each document
-    for task_params in task_params_list:
-        task_id = redact.delay(task_params)
-        logger.debug(f"Created redaction task {task_id}.")
+    for obj in body.objects:
+        task_chain = create_document_redaction_task(
+            body.jurisdictionId, body.caseId, subj_ids_list, obj
+        )
+        # Start the task chain
+        task_id = task_chain.apply_async()
+        doc_id = obj.document.root.documentId
+        logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
         # Save the task to the database
         request.state.db.add(
             Task(
                 task_id=str(task_id),
-                case_id=task_params.case_id,
-                jurisdiction_id=task_params.jurisdiction_id,
-                document_id=task_params.document_id,
+                case_id=body.caseId,
+                jurisdiction_id=body.jurisdictionId,
+                document_id=doc_id,
             )
         )
 
@@ -162,9 +158,9 @@ def process_subject(subject: SubjectModel) -> Subject:
     )
 
 
-async def create_document_redaction_task(
+def create_document_redaction_task(
     jurisdiction_id: str, case_id: str, subject_ids: list[str], object: RedactionTarget
-) -> RedactionTask:
+) -> chain:
     """Create database objects representing a document redaction task.
 
     Args:
@@ -174,57 +170,35 @@ async def create_document_redaction_task(
         object (RedactionTarget): The document to redact.
 
     Returns:
-        RedactionTask: The task parameters.
+        chain: The Celery chain representing the redaction pipeline.
     """
     callback_url = str(object.callbackUrl) if object.callbackUrl else None
     target_blob_url = str(object.targetBlobUrl) if object.targetBlobUrl else None
     validate_callback_url(callback_url)
     validate_callback_url(target_blob_url)
 
-    try:
-        # TODO: Fetch the document content in a background task?
-        content = await fetch_document_content(object.document)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    fd_task_params = FetchTask(
+        document=object.document,
+    )
 
-    task_params = RedactionTask(
+    r_task_params = RedactionTask(
         document_id=object.document.root.documentId,
-        file_bytes=content,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
-        callback_url=callback_url,
-        target_blob_url=target_blob_url,
         subject_ids=subject_ids,
     )
 
-    return task_params
+    cb_task_params = CallbackTask(
+        callback_url=callback_url,
+        target_blob_url=target_blob_url,
+    )
 
-
-async def fetch_document_content(doc: Document) -> bytes:
-    """Fetch the content of a document.
-
-    Args:
-        doc (Document): The document to fetch.
-
-    Returns:
-        bytes: The content of the document.
-    """
-    content = b""
-    match doc.root.attachmentType:
-        case "LINK":
-            timeout = aiohttp.ClientTimeout(
-                total=config.task.link_download_timeout_seconds
-            )
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(str(doc.root.url)) as response:
-                    content = await response.read()
-        case "TEXT":
-            content = doc.root.content.encode("utf-8")
-        case "BASE64":
-            content = base64.b64decode(doc.root.content)
-        case _:
-            raise ValueError(f"Unsupported attachment type: {doc.root.attachmentType}")
-    return content
+    # TODO: error handling
+    return chain(
+        fetch.s(fd_task_params),
+        redact.s(r_task_params),
+        callback.s(cb_task_params),
+    )
 
 
 async def get_redaction_status(
@@ -341,33 +315,3 @@ async def get_redaction_status(
         caseId=case_id,
         requests=redaction_results,
     )
-
-
-def format_document(redaction: RedactionTaskResult) -> Document:
-    """Format a redacted document for the API response.
-
-    Args:
-        redaction (RedactionTaskResult): The redaction results.
-
-    Returns:
-        Document: The formatted document.
-    """
-    document_id = redaction.document_id
-    if redaction.external_link:
-        return Document(
-            root=DocumentLink(
-                documentId=document_id,
-                attachmentType="LINK",
-                url=redaction.external_link,
-            )
-        )
-    else:
-        if not redaction.content:
-            raise ValueError("No redacted content")
-        return Document(
-            root=DocumentContent(
-                documentId=document_id,
-                attachmentType="BASE64",
-                content=base64.b64encode(redaction.content).decode("utf-8"),
-            )
-        )
