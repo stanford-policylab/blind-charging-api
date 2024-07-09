@@ -55,13 +55,10 @@ def redact(fetch_result: FetchTaskResult, params: RedactionTask) -> RedactionTas
     pipeline = Pipeline(pipeline_cfg)
     input_buffer = io.BytesIO(fetch_result.file_bytes)
     output_buffer = io.BytesIO()
-    # pipeline.run(
-    output_buffer, _ = pipeline.run(
+    pipeline.run(
         {
-            # "in": {"buffer": input_buffer},
-            # "out": {"buffer": output_buffer},
-            "input_buffer": input_buffer,
-            # "output_buffer": output_buffer
+            "in": {"buffer": input_buffer},
+            "out": {"buffer": output_buffer},
         }
     )
 
