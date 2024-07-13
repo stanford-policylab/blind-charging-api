@@ -5,8 +5,8 @@ from ..config import config
 
 queue = Celery(
     "app.server.tasks",
-    broker=config.queue.broker_url,
-    backend=f"db+{config.db.driver.sync_uri}",
+    broker=config.broker.url,
+    backend=config.store.url,
 )
 
 

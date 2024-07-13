@@ -4,13 +4,12 @@ from pathlib import Path
 from typing import Union
 
 import tomllib
-from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
-logger = logging.getLogger(__name__)
+from .store import RedisConfig
 
-DbConfig = Union[MsSqlSettings, SqliteSettings]
+logger = logging.getLogger(__name__)
 
 
 class TaskConfig(BaseModel):
@@ -21,16 +20,16 @@ class TaskConfig(BaseModel):
     link_download_timeout_seconds: float = 30.0
 
 
-class QueueConfig(BaseModel):
-    broker_url: str = "redis://localhost:6379/0"
+StoreConfig = Union[RedisConfig]
+
+BrokerConfig = Union[RedisConfig]
 
 
 class Config(BaseSettings):
     debug: bool = False
-    db: DbConfig = SqliteSettings(engine="sqlite")
     task: TaskConfig = TaskConfig()
-    queue: QueueConfig = QueueConfig()
-    automigrate: bool = False
+    store: StoreConfig = RedisConfig()
+    broker: BrokerConfig = RedisConfig()
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:

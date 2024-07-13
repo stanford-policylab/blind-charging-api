@@ -1,13 +1,15 @@
+import asyncio
 import logging
 from urllib.parse import urlparse
 
 from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
-from sqlalchemy import select
 
 from ..config import config
-from ..db import Alias, Subject, SubjectDocument, Task, nowts
+from ..generated.models import (
+    HumanName as HumanNameModel,
+)
 from ..generated.models import (
     MaskedSubject,
     RedactionRequest,
@@ -38,6 +40,20 @@ logger = logging.getLogger(__name__)
 # Only allow HTTP callbacks in debug mode
 _callback_schemes = {"http", "https"} if config.debug else {"https"}
 _disallowed_callback_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
+
+
+def key(jurisdiction_id: str, case_id: str, category: str) -> str:
+    """Generate a key for a redis value.
+
+    Args:
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+        category (str): The category of the task.
+
+    Returns:
+        str: The key.
+    """
+    return f"{jurisdiction_id}:{case_id}:{category}"
 
 
 def validate_callback_url(url: str | None) -> None:
@@ -77,19 +93,22 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     logger.debug(f"Received redaction request for {body.jurisdictionId}-{body.caseId}")
 
     subject_ids = set[str]()
+    subject_role_mapping = dict[str, str]()
     # Process the individuals submitted with the request
     for subj in body.subjects:
-        subject = process_subject(subj)
-        for doc in body.objects:
-            subject.documents.append(
-                SubjectDocument(
-                    subject_id=subject.subject_id,
-                    document_id=doc.document.root.documentId,
-                    role=subj.role,
+        subject_role_mapping[subj.subject.subjectId] = subj.role
+        for i, alias in enumerate(process_subject(subj)):
+            if i == 0:
+                # TODO - I doln't think the keying of the aliases is quite right
+                await request.state.tx.setmodel(
+                    f"aliases:{subj.subject.subjectId}:primary", alias
                 )
-            )
-        request.state.db.add(subject)
-        subject_ids.add(subject.subject_id)
+            await request.state.tx.saddmodel(f"aliases:{subj.subject.subjectId}", alias)
+        subject_ids.add(subj.subject.subjectId)
+    await request.state.tx.hsetmapping(
+        key(body.jurisdictionId, body.caseId, "role"), subject_role_mapping
+    )
+
     subj_ids_list = list(subject_ids)
 
     # Create a task for each document
@@ -102,60 +121,42 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         doc_id = obj.document.root.documentId
         logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
         # Save the task to the database
-        request.state.db.add(
-            Task(
-                task_id=str(task_id),
-                case_id=body.caseId,
-                jurisdiction_id=body.jurisdictionId,
-                document_id=doc_id,
-            )
+        await request.state.tx.hsetmapping(
+            key(body.jurisdictionId, body.caseId, "task"),
+            {doc_id: str(task_id)},
         )
 
 
-def process_subject(subject: SubjectModel) -> Subject:
+def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
     """Process a subject for the database
 
     Args:
         subjects (list[SubjectModel]): The subjects to process.
 
     Returns:
-        Subject: The processed subject.
+        HumanNameModel: The processed subject.
     """
-    aliases: list[Alias] = []
+    aliases: list[HumanNameModel] = []
     all_aliases = [subject.subject.name] + (subject.subject.aliases or [])
-    for i, alias in enumerate(all_aliases):
+    for alias in all_aliases:
         if isinstance(alias, str):
             parsed_name = HumanName(alias)
             aliases.append(
-                Alias(
-                    primary=nowts() if i == 0 else None,
-                    first_name=parsed_name.first,
-                    middle_name=parsed_name.middle,
-                    last_name=parsed_name.last,
+                HumanNameModel(
+                    firstName=parsed_name.first,
+                    middleName=parsed_name.middle,
+                    lastName=parsed_name.last,
                     suffix=parsed_name.suffix,
                     title=parsed_name.title,
                     nickname=parsed_name.nickname,
                 )
             )
         else:
-            aliases.append(
-                Alias(
-                    primary=nowts() if i == 0 else None,
-                    first_name=alias.firstName,
-                    middle_name=alias.middleName,
-                    last_name=alias.lastName,
-                    suffix=alias.suffix,
-                    title=alias.title,
-                    nickname=alias.nickname,
-                )
-            )
+            aliases.append(alias)
 
     logger.debug(f"Processed {len(aliases)} aliases for {subject.subject.subjectId}.")
 
-    return Subject(
-        subject_id=subject.subject.subjectId,
-        aliases=aliases,
-    )
+    return aliases
 
 
 def create_document_redaction_task(
@@ -193,7 +194,7 @@ def create_document_redaction_task(
         target_blob_url=target_blob_url,
     )
 
-    # TODO: error handling
+    # TODO: error handling, iterative processing
     return chain(
         fetch.s(fd_task_params),
         redact.s(r_task_params),
@@ -221,30 +222,21 @@ async def get_redaction_status(
     """
     redaction_results = list[RedactionResult]()
 
+    if subject_id:
+        raise NotImplementedError("Filtering by subject ID is not yet implemented.")
+
     # Get the redaction status from the database
-    tasks_q = select(Task).filter(
-        Task.jurisdiction_id == jurisdiction_id, Task.case_id == case_id
+    tasks, masks = await asyncio.gather(
+        request.state.tx.hgetall(key(jurisdiction_id, case_id, "task")),
+        request.state.tx.hgetall(key(jurisdiction_id, case_id, "mask")),
     )
-    tasks_result = await request.state.db.execute(tasks_q)
-    tasks = tasks_result.scalars().all()
-    document_ids = [task.document_id for task in tasks]
-    masks_q = select(SubjectDocument).filter(
-        SubjectDocument.document_id.in_(document_ids)
-    )
+    masked_subjects = [
+        MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()
+    ]
 
-    masks_result = await request.state.db.execute(masks_q)
-    subjects_map: dict[str, list[SubjectDocument]] = {}
-    for mask in masks_result.scalars().unique():
-        subjects_map.setdefault(mask.document_id, []).append(mask)
-
-    for task in tasks:
-        masked_subjects = [
-            MaskedSubject(subjectId=fs.subject.subject_id, alias=fs.mask or "")
-            for fs in subjects_map.get(task.document_id, [])
-        ]
-
+    for doc_id, task_id in tasks.items():
         # Get the status of the task from celery
-        task_result = get_result(task.task_id)
+        task_result = get_result(task_id)
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
         if not task_result:
@@ -253,6 +245,7 @@ async def get_redaction_status(
                     RedactionResultPending(
                         jurisdictionId=jurisdiction_id,
                         caseId=case_id,
+                        inputDocumentId=doc_id,
                         maskedSubjects=masked_subjects,
                         status="QUEUED",
                     )
@@ -267,6 +260,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
+                            inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="QUEUED",
                         )
@@ -278,6 +272,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
+                            inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="PROCESSING",
                         )
@@ -289,6 +284,7 @@ async def get_redaction_status(
                         RedactionResultSuccess(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
+                            inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="COMPLETE",
                             redactedDocument=format_document(task_result.result),
@@ -301,6 +297,7 @@ async def get_redaction_status(
                         RedactionResultError(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
+                            inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="ERROR",
                             error=str(task_result.result),
