@@ -40,29 +40,28 @@ def callback(
     redact_result: RedactionTaskResult, params: CallbackTask
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
+    document: Document | None = None
+
     if params.target_blob_url:
+        document = Document(
+            root=DocumentLink(
+                documentId=redact_result.document_id,
+                attachmentType="LINK",
+                url=params.target_blob_url,
+            )
+        )
         if not redact_result.content:
             raise ValueError("Missing redacted content")
-        try:
-            write_to_azure_blob_url(params.target_blob_url, redact_result.content)
-            return CallbackTaskResult(
-                status_code=200,
-                response="written to blob",
-                redaction=redact_result,
-            )
-        except Exception as e:
-            return CallbackTaskResult(
-                status_code=500,
-                response=str(e),
-                redaction=redact_result,
-            )
+        write_to_azure_blob_url(params.target_blob_url, redact_result.content)
+    else:
+        document = format_document(redact_result)
 
     if params.callback_url:
         response = requests.post(
             params.callback_url,
-            # TODO redact_result might could be formatted into the link
-            json=format_document(redact_result).model_dump(),
+            json=document.model_dump(),
         )
+
         # TODO: figure out retries
         return CallbackTaskResult(
             status_code=response.status_code,
