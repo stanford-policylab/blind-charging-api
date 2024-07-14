@@ -32,7 +32,7 @@ Decision = Enum(
 Disqualifier = Enum(
     "Disqualifier",
     "assigned_to_unblind case_type_ineligible prior_knowledge_bias "
-    "narrative_incomplete redaction_missing redaction_inelligible other",
+    "narrative_incomplete redaction_missing redaction_illegible other",
 )
 
 
@@ -72,12 +72,12 @@ class Exposure(Base):
     __tablename__ = "exposure"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
-    jurisdiction_id: Mapped[str_256] = mapped_column(nullable=False)
-    case_id: Mapped[str_256] = mapped_column(nullable=False)
-    subject_id: Mapped[str_256] = mapped_column(nullable=False)
-    document_ids: Mapped[str_4096] = mapped_column(nullable=False)
-    reviewer_id: Mapped[str_256] = mapped_column(nullable=False)
-    review_type: Mapped[ReviewType] = mapped_column(nullable=False)
+    jurisdiction_id: Mapped[str_256] = mapped_column()
+    case_id: Mapped[str_256] = mapped_column()
+    subject_id: Mapped[str_256] = mapped_column()
+    document_ids: Mapped[str_4096] = mapped_column()
+    reviewer_id: Mapped[str_256] = mapped_column()
+    review_type: Mapped[ReviewType] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
@@ -86,16 +86,16 @@ class Outcome(Base):
     __tablename__ = "outcome"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
-    jurisdiction_id: Mapped[str_256] = mapped_column(nullable=False)
-    case_id: Mapped[str_256] = mapped_column(nullable=False)
-    subject_id: Mapped[str_256] = mapped_column(nullable=False)
-    reviewer_id: Mapped[str_256] = mapped_column(nullable=False)
-    document_ids: Mapped[str_4096] = mapped_column(nullable=False)
-    review_type: Mapped[ReviewType] = mapped_column(nullable=False)
-    decision: Mapped[Decision] = mapped_column(nullable=False)
-    explanation: Mapped[text] = mapped_column()
-    disqualifier: Mapped[Disqualifier] = mapped_column()
-    additional_evidence: Mapped[text] = mapped_column()
+    jurisdiction_id: Mapped[str_256] = mapped_column()
+    case_id: Mapped[str_256] = mapped_column()
+    subject_id: Mapped[str_256] = mapped_column()
+    reviewer_id: Mapped[str_256] = mapped_column()
+    document_ids: Mapped[str_4096] = mapped_column()
+    review_type: Mapped[ReviewType] = mapped_column()
+    decision: Mapped[Decision] = mapped_column()
+    explanation: Mapped[text] = mapped_column(nullable=True)
+    disqualifier: Mapped[Disqualifier] = mapped_column(nullable=True)
+    additional_evidence: Mapped[text] = mapped_column(nullable=True)
     page_open_ts: Mapped[datetime] = mapped_column()
     decision_ts: Mapped[datetime] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=nowts)

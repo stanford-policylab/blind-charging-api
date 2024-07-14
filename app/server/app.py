@@ -35,7 +35,8 @@ async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
         store.driver.alembic.stamp("head")
     else:
         logger.info("Applying any pending database migrations ...")
-        store.driver.driver.alembic.upgrade("head")
+        store.driver.alembic.upgrade("head")
+    return store.driver
 
 
 async def lifespan(api: FastAPI):

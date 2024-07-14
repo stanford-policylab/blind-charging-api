@@ -32,9 +32,10 @@ database = 1
 # Configure the research components of the application.
 # By default, the research endpoints are disabled.
 enabled = true
+automigrate = true
 
 [experiments.store]
 # Where to store research data. By default, for development and testing,
 # results will just be stored in an in-memory SQLite database.
 engine = "sqlite"
-path = ":memory:"
+path = "test.db"
