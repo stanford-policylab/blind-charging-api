@@ -1,10 +1,11 @@
 import base64
 
 import requests
+from azure.storage.blob import BlobClient
 from pydantic import BaseModel
 
+from ..config import config
 from ..generated.models import Document, DocumentContent, DocumentLink
-from .config import config
 from .queue import queue
 from .redact import RedactionTaskResult
 from .serializer import register_type
@@ -40,7 +41,21 @@ def callback(
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
     if params.target_blob_url:
-        raise NotImplementedError("Blob storage not implemented")
+        if not redact_result.content:
+            raise ValueError("Missing redacted content")
+        try:
+            write_to_azure_blob_url(params.target_blob_url, redact_result.content)
+            return CallbackTaskResult(
+                status_code=200,
+                response="written to blob",
+                redaction=redact_result,
+            )
+        except Exception as e:
+            return CallbackTaskResult(
+                status_code=500,
+                response=str(e),
+                redaction=redact_result,
+            )
 
     if params.callback_url:
         response = requests.post(
@@ -90,3 +105,14 @@ def format_document(redaction: RedactionTaskResult | CallbackTaskResult) -> Docu
                 content=base64.b64encode(redaction.content).decode("utf-8"),
             )
         )
+
+
+def write_to_azure_blob_url(sas_url: str, content: bytes):
+    """Write content to an Azure blob URL.
+
+    Args:
+        sas_url (str): The Azure blob SAS URL.
+        content (bytes): The content to write.
+    """
+    client = BlobClient.from_blob_url(blob_url=sas_url)
+    client.upload_blob(content)
