@@ -1,4 +1,10 @@
-from .redis import RedisConfig, RedisStore, RedisStoreSession
+from .redis import (
+    RedisConfig,
+    RedisStore,
+    RedisStoreSession,
+    RedisTestConfig,
+    TestRedisStoreSession,
+)
 from .store import Store, StoreSession, key
 
 __all__ = [
@@ -6,6 +12,8 @@ __all__ = [
     "StoreSession",
     "RedisConfig",
     "RedisStore",
+    "RedisTestConfig",
     "RedisStoreSession",
+    "TestRedisStoreSession",
     "key",
 ]
