@@ -28,7 +28,10 @@ def root() -> None:
     return None
 
 
+# Adapted from: https://bugfactory.io/articles/starting-and-stopping-uvicorn-in-the-background/
 class BackgroundServer(uvicorn.Server):
+    """A uvicorn server that can be run in a background thread."""
+
     @contextlib.contextmanager
     def run_in_thread(self) -> Generator:
         thread = threading.Thread(target=self.run)
