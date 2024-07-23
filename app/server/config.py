@@ -89,7 +89,6 @@ _loud_logger_names = [
     "pydantic",
     "celery",
     "alligater",
-    "bc2",
     "blind_charging_core",
 ]
 for name in _logger_names:
