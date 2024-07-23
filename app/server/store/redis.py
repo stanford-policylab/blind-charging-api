@@ -63,6 +63,10 @@ class BaseRedisStoreSession(StoreSession):
         await self.pipe.set(key, value)
 
     async def get(self, key: str) -> bytes | None:
+        # TODO(jnu): We can't watch a key in the middle of a pipeline.
+        # Will have to come up with a way to pre-register keys to watch.
+        # Can probably do this easily just by watching all the keys we
+        # ever use, even though in some cases we won't use all of them.
         # await self.pipe.watch(key)
         return await self.client.get(key)
 
