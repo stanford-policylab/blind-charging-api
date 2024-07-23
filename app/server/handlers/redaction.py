@@ -274,7 +274,7 @@ async def get_redaction_status(
                             inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="COMPLETE",
-                            redactedDocument=task_result.document,
+                            redactedDocument=task_result.result.document,
                         )
                     )
                 )

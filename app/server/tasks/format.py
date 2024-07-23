@@ -52,7 +52,7 @@ def format(
                 raise ValueError("Missing redacted content")
             write_to_azure_blob_url(params.target_blob_url, redact_result.content)
         else:
-            document = format_document(redact_result)
+            document = format_document(params, redact_result)
 
     return FormatTaskResult(
         document=document,
@@ -62,23 +62,25 @@ def format(
     )
 
 
-def format_document(redaction: RedactionTaskResult) -> Document:
+def format_document(
+    format_task: FormatTask, redaction: RedactionTaskResult
+) -> Document:
     """Format a redacted document for the API response.
 
     Args:
+        format_task (FormatTask): The format task.
         redaction (RedactionTaskResult): The redaction results.
 
     Returns:
         Document: The formatted document.
     """
-    redaction = redaction.redaction
     document_id = redaction.document_id
-    if redaction.external_link:
+    if format_task.target_blob_url:
         return Document(
             root=DocumentLink(
                 documentId=document_id,
                 attachmentType="LINK",
-                url=redaction.external_link,
+                url=format_task.target_blob_url,
             )
         )
     else:
