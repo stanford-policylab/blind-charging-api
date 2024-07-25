@@ -2,10 +2,22 @@ import logging
 import os
 import tempfile
 from datetime import datetime
+from typing import TYPE_CHECKING, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytz
 from fastapi.testclient import TestClient
+from glowplug import DbDriver
+from pytest_celery import (
+    CeleryBackendCluster,
+    CeleryTestSetup,
+    RedisTestBackend,
+)
+
+if TYPE_CHECKING:
+    from app.server.config import Config
+    from app.server.store import Store
+
 
 DEFAULT_TEST_CONFIG_TPL = """\
 debug = true
@@ -37,12 +49,12 @@ os.environ["VALIDATE_TOKEN"] = "no"
 
 
 @pytest.fixture
-def logger():
+def logger() -> logging.Logger:
     return logging.getLogger(__name__)
 
 
 @pytest.fixture
-async def sqlite_db_path(request, logger):
+async def sqlite_db_path(request, logger) -> AsyncGenerator[str, None]:
     db_path = getattr(request, "param", None)
     if db_path:
         logger.debug("Using existing SQLite database: %s", db_path)
@@ -57,8 +69,23 @@ async def sqlite_db_path(request, logger):
 
 
 @pytest.fixture
-async def config(sqlite_db_path, request, logger):
+def celery_backend_cluster(
+    celery_redis_backend: RedisTestBackend,
+) -> Generator[CeleryBackendCluster, None, None]:
+    cluster = CeleryBackendCluster(celery_redis_backend)
+    yield cluster
+    cluster.teardown()
+
+
+@pytest.fixture
+async def config(
+    sqlite_db_path, request, logger, celery_setup: CeleryTestSetup
+) -> AsyncGenerator["Config", None]:
     from app.server.config import config
+
+    print("BACKEND", celery_setup.backend.__dict__)
+    print("BROKER", celery_setup.broker.__dict__)
+    raise Exception("STOP")
 
     os.environ["VALIDATE_TOKEN"] = "no"
 
@@ -79,7 +106,7 @@ async def config(sqlite_db_path, request, logger):
 
 
 @pytest.fixture
-async def exp_db(config):
+async def exp_db(config) -> AsyncGenerator[DbDriver, None]:
     from app.server.db import init_db
 
     await init_db(config.experiments.store.driver, drop_first=True)
@@ -88,13 +115,13 @@ async def exp_db(config):
 
 
 @pytest.fixture
-async def qstore(config):
+async def qstore(config) -> AsyncGenerator["Store", None]:
     async with config.queue.store.driver() as store:
         yield store
 
 
 @pytest.fixture
-def now(request, logger):
+def now(request, logger) -> Callable[[], datetime]:
     default_now = datetime(2024, 1, 1, 0, 0, 0)
     dt = getattr(request, "param", default_now)
     # Make sure to use a timezone-aware datetime. By default, the timezone is UTC.
@@ -106,7 +133,7 @@ def now(request, logger):
 
 
 @pytest.fixture
-async def api(config, exp_db, now, qstore):
+async def api(config, exp_db, now, qstore) -> AsyncGenerator[TestClient, None]:
     from app import server
 
     api = TestClient(server)
