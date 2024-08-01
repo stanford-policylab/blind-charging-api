@@ -334,9 +334,15 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
 
     The fixture will reference the database and message queue objects.
     """
-    from app.server.app import app as server
+    import importlib
 
-    with TestClient(server) as api:
+    import app.server.app as srv
+    import app.server.tasks as tasks
+
+    importlib.reload(srv)
+    importlib.reload(tasks)
+
+    with TestClient(srv.app) as api:
         # NOTE: need to make sure the queue store is initialized within
         # the context of the TestClient's event loop. This is _not_ the
         # same event loop that is managed by the pytest-asyncio `event_loop`
