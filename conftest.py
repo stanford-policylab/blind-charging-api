@@ -334,13 +334,7 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
 
     The fixture will reference the database and message queue objects.
     """
-    import importlib
-
     import app.server.app as srv
-    import app.server.tasks as tasks
-
-    importlib.reload(srv)
-    importlib.reload(tasks)
 
     with TestClient(srv.app) as api:
         # NOTE: need to make sure the queue store is initialized within
