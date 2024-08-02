@@ -1,4 +1,5 @@
 import pathlib
+import re
 
 from app.server.tasks import (
     FetchTaskResult,
@@ -26,14 +27,20 @@ def test_redact():
         case_id="case1",
     )
 
-    result = redact.s(fetch_result, redact_task).apply()
-    assert result.get() == RedactionTaskResult(
-        jurisdiction_id="jur1",
-        case_id="case1",
-        document_id="doc1",
-        content=sample_ocr.read_bytes(),
-        errors=[],
+    result = redact.s(fetch_result, redact_task).apply().get()
+
+    # Tesseract can give different results on different systems, so we can't
+    # compare the exact content. Usually it's just the whitespace that differs,
+    # so compare with whitespace stripped.
+    assert re.sub(r"\s+", "", result.content.decode("utf-8")) == re.sub(
+        r"\s+", "", sample_ocr.read_text()
     )
+    assert result.model_dump(exclude=["content"]) == {
+        "jurisdiction_id": "jur1",
+        "case_id": "case1",
+        "document_id": "doc1",
+        "errors": [],
+    }
 
 
 def test_redact_errors():
