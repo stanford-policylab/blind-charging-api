@@ -1,3 +1,5 @@
+import json
+
 import responses
 from fakeredis import FakeRedis
 from responses import matchers
@@ -133,10 +135,14 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
                     "caseId": "case1",
                     "inputDocumentId": "doc1",
                     "maskedSubjects": [{"subjectId": "sub1", "alias": "Subject 1"}],
-                    "error": (
-                        '[{"message": "error", '
-                        '"task": "task", '
-                        '"exception": "Exception"}]',
+                    "error": json.dumps(
+                        [
+                            {
+                                "message": "error",
+                                "task": "task",
+                                "exception": "Exception",
+                            }
+                        ]
                     ),
                     "status": "ERROR",
                 }
