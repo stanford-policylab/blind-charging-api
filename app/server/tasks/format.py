@@ -37,6 +37,7 @@ register_type(FormatTaskResult)
     retry_backoff=True,
 )
 def format(
+    self,
     redact_result: RedactionTaskResult,
     params: FormatTask,
 ) -> FormatTaskResult:
@@ -88,7 +89,10 @@ def format(
                 jurisdiction_id=redact_result.jurisdiction_id,
                 case_id=redact_result.case_id,
                 document_id=redact_result.document_id,
-                errors=[*redact_result.errors, ProcessingError(message=str(e))],
+                errors=[
+                    *redact_result.errors,
+                    ProcessingError.from_exception("format", e),
+                ],
             )
 
 
