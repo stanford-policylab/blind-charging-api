@@ -7,6 +7,7 @@ from app.server.tasks import (
     CallbackTask,
     CallbackTaskResult,
     FormatTaskResult,
+    ProcessingError,
     callback,
 )
 
@@ -16,7 +17,7 @@ def test_callback_no_callback_no_error():
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        redact_error=None,
+        errors=[],
         document=Document(
             root=DocumentLink(
                 documentId="doc1",
@@ -43,7 +44,7 @@ def test_callback_no_callback_with_error():
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        redact_error="error",
+        errors=[ProcessingError(message="error", task="task", exception="Exception")],
         document=None,
     )
 
@@ -65,7 +66,7 @@ def test_callback_with_callback_no_error(fake_redis_store: FakeRedis):
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        redact_error=None,
+        errors=[],
         document=Document(
             root=DocumentLink(
                 documentId="doc1",
@@ -116,7 +117,7 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        redact_error="error",
+        errors=[ProcessingError(message="error", task="task", exception="Exception")],
         document=None,
     )
 
@@ -132,7 +133,11 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
                     "caseId": "case1",
                     "inputDocumentId": "doc1",
                     "maskedSubjects": [{"subjectId": "sub1", "alias": "Subject 1"}],
-                    "error": "error",
+                    "error": (
+                        '[{"message": "error", '
+                        '"task": "task", '
+                        '"exception": "Exception"}]',
+                    ),
                     "status": "ERROR",
                 }
             ),
