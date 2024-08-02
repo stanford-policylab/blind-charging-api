@@ -1,6 +1,7 @@
 import pathlib
 import re
 
+from app.server.generated.models import OutputFormat
 from app.server.tasks import (
     FetchTaskResult,
     ProcessingError,
@@ -25,6 +26,7 @@ def test_redact():
         document_id="doc1",
         jurisdiction_id="jur1",
         case_id="case1",
+        renderer=OutputFormat.TEXT,
     )
 
     result = redact.s(fetch_result, redact_task).apply().get()
