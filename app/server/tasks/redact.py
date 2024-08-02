@@ -100,7 +100,7 @@ def redact(
                 jurisdiction_id=params.jurisdiction_id,
                 case_id=params.case_id,
                 document_id=params.document_id,
-                error=[*fetch_result.errors, new_error],
+                errors=[*fetch_result.errors, new_error],
             )
         else:
             logger.warning(
