@@ -10,8 +10,8 @@ from app.server.tasks import (
 
 this_dir = pathlib.Path(__file__).parent
 sample_data_dir = this_dir.parent.parent / "app" / "server" / "sample_data"
-sample_pdf = sample_data_dir / "P441852-response-documents.pdf"
-sample_ocr = sample_data_dir / "P441852-response-documents.ocr.txt"
+sample_pdf = sample_data_dir / "simple.pdf"
+sample_ocr = sample_data_dir / "simple.ocr.txt"
 
 
 def test_redact():
