@@ -19,7 +19,7 @@ from app.server.tasks import (
 
 
 # Path the `chain` function from celery to mock it
-@patch("app.server.handlers.redaction.chain")
+@patch("app.server.tasks.controller.chain")
 async def test_redact_handler(
     chain_mock: MagicMock,
     api: TestClient,

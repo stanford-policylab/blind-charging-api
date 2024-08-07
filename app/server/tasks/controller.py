@@ -47,15 +47,18 @@ def create_document_redaction_task(
             renderer=renderer,
         ).s(),
         FormatTask(
-            target_blob_url=active_object.target_blob_url,
+            target_blob_url=str(active_object.targetBlobUrl)
+            if active_object.targetBlobUrl
+            else None,
         ).s(),
         CallbackTask(
-            callback_url=active_object.callback_url,
+            callback_url=str(active_object.callbackUrl)
+            if active_object.callbackUrl
+            else None
         ).s(),
         FinalizeTask(
             jurisdiction_id=jurisdiction_id,
             case_id=case_id,
-            next_objects=objects[1:],
             subject_ids=subject_ids,
             renderer=renderer,
         ).s(),
