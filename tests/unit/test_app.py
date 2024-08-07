@@ -130,6 +130,50 @@ async def test_outcome_blind_disqualify(api: TestClient, exp_db: DbDriver):
         assert exp.decision_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
 
 
+async def test_outcome_blind_disqualify_empty_list(api: TestClient):
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjectId": "sub1",
+        "reviewingAttorneyMaskedId": "att1",
+        "documentIds": ["doc1"],
+        "decision": {
+            "protocol": "BLIND_REVIEW",
+            "outcome": {
+                "disqualifyingReason": [],
+                "disqualifyingReasonExplanation": (
+                    "This case should not have been selected for blind review."
+                ),
+                "outcomeType": "DISQUALIFICATION",
+            },
+        },
+        "timestamps": {
+            "pageOpen": "2024-07-25T18:12:26.118Z",
+            "decision": "2024-07-25T18:12:26.118Z",
+        },
+    }
+
+    response = api.post("/api/v1/outcome", json=request)
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {
+                "ctx": {
+                    "limit_value": 1,
+                },
+                "loc": [
+                    "body",
+                    "decision",
+                    "outcome",
+                    "disqualifyingReason",
+                ],
+                "msg": "ensure this value has at least 1 items",
+                "type": "value_error.list.min_items",
+            },
+        ]
+    }
+
+
 async def test_outcome_blind_disqualify_multiple(api: TestClient, exp_db: DbDriver):
     request = {
         "jurisdictionId": "jur1",
