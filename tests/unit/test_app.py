@@ -156,21 +156,7 @@ async def test_outcome_blind_disqualify_empty_list(api: TestClient):
     response = api.post("/api/v1/outcome", json=request)
     assert response.status_code == 422
     assert response.json() == {
-        "detail": [
-            {
-                "ctx": {
-                    "limit_value": 1,
-                },
-                "loc": [
-                    "body",
-                    "decision",
-                    "outcome",
-                    "disqualifyingReason",
-                ],
-                "msg": "ensure this value has at least 1 items",
-                "type": "value_error.list.min_items",
-            },
-        ]
+        "detail": "DisqualifyOutcome must have at least one disqualifier"
     }
 
 
@@ -215,10 +201,13 @@ async def test_outcome_blind_disqualify_multiple(api: TestClient, exp_db: DbDriv
             == "This case should not have been selected for blind review."
         )
         assert len(exp.disqualifiers) == 2
-        assert exp.disqualifiers[0].disqualifier == Disqualifier.case_type_ineligible
-        assert exp.disqualifiers[0].outcome_id == exp.id
-        assert exp.disqualifiers[1].disqualifier == Disqualifier.other
-        assert exp.disqualifiers[1].outcome_id == exp.id
+        sorted_disqualifiers = sorted(
+            exp.disqualifiers, key=lambda d: d.disqualifier.value
+        )
+        assert sorted_disqualifiers[0].disqualifier == Disqualifier.case_type_ineligible
+        assert sorted_disqualifiers[0].outcome_id == exp.id
+        assert sorted_disqualifiers[1].disqualifier == Disqualifier.other
+        assert sorted_disqualifiers[1].outcome_id == exp.id
         assert exp.page_open_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
         assert exp.decision_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
 

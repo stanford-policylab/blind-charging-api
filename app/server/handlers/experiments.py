@@ -1,6 +1,6 @@
 import json
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 from ..config import config
@@ -60,10 +60,15 @@ async def log_outcome(request: Request, body: Review) -> None:
     if not config.experiments.enabled:
         return
 
-    decision_params = format_review_decision(body.decision)
+    try:
+        decision_params = format_review_decision(body.decision)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     decision_params_dict = decision_params.model_dump()
+
     disqualifiers = decision_params_dict.pop("disqualifiers", [])
+
     outcome = Outcome(
         jurisdiction_id=body.jurisdictionId,
         case_id=body.caseId,
@@ -173,7 +178,7 @@ def format_blind_review_outcome(
             additional_evidence=outcome.additionalEvidence,
         )
     elif isinstance(outcome, DisqualifyOutcome):
-        return OutcomeDecision(
+        decision = OutcomeDecision(
             review_type=ReviewType.blind,
             decision=Decision.disqualify,
             explanation=outcome.disqualifyingReasonExplanation,
@@ -181,6 +186,13 @@ def format_blind_review_outcome(
                 outcome.disqualifyingReason
             ),
         )
+
+        # The auto-generated Pydantic model doesn't currently respect the minItems
+        # constraint from the schema, so we need to enforce it manually.
+        if not decision.disqualifiers:
+            raise ValueError("DisqualifyOutcome must have at least one disqualifier")
+
+        return decision
 
     # This should never happen! throw an error just in case.
     raise ValueError(f"Unknown outcome type: {type(outcome)}")
