@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 from celery.result import AsyncResult
 from pydantic import BaseModel
@@ -11,6 +12,8 @@ from ..generated.models import Document, OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult
 from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
+
+logger = logging.getLogger(__name__)
 
 
 class FinalizeTask(BaseModel):
@@ -32,6 +35,7 @@ class FinalizeTaskResult(BaseModel):
     next_task_id: str | None = None
 
 
+register_type(FinalizeTask)
 register_type(FinalizeTaskResult)
 
 
@@ -116,23 +120,39 @@ def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget 
     """
 
     async def _get_objects() -> RedactionTarget | None:
+        logging.debug(f"Getting next object for {jurisdiction_id}:{case_id} ...")
         async with config.queue.store.driver() as store:
             async with store.tx() as tx:
                 cs = CaseStore(tx)
                 await cs.init(jurisdiction_id, case_id)
                 doc_tasks = await cs.get_doc_tasks()
+                logging.debug(f"Found {len(doc_tasks)} existing task(s).")
                 while True:
                     next_object = await cs.pop_object()
                     if not next_object:
+                        logging.debug("No more objects to check, all done processing.")
                         return None
                     # Validate that the next object needs to be redacted.
                     existing_task = doc_tasks.get(next_object.document.root.documentId)
                     if not existing_task:
+                        logging.debug(
+                            f"Found next object for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId}"
+                        )
                         return next_object
                     task = get_result(existing_task)
-                    if task.state == "SUCCESS":
-                        continue
-                    return next_object
+                    if task.state == "FAILURE":
+                        logging.debug(
+                            f"Found failed task for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId}. Retrying."
+                        )
+                        return next_object
+                    else:
+                        logging.debug(
+                            f"Found existing task for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId} "
+                            f"({task}.state={task.state}). Skipping."
+                        )
 
     return asyncio.run(_get_objects())
 
