@@ -9,14 +9,13 @@ from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import Document, OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult
-from .queue import ProcessingError, queue
+from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
 
 
 class FinalizeTask(BaseModel):
     jurisdiction_id: str
     case_id: str
-    next_objects: list[RedactionTarget] = []
     subject_ids: list[str] = []
     renderer: OutputFormat
 
@@ -63,15 +62,17 @@ def finalize(
 
     # Queue up the next document for processing now, if there is one.
     next_task: AsyncResult | None = None
-    if params.next_objects:
+    next_object = get_next_object_sync(
+        format_result.jurisdiction_id, format_result.case_id
+    )
+    if next_object:
         from .controller import create_document_redaction_task
 
-        new_active_task = params.next_objects[0]
         new_chain = create_document_redaction_task(
             params.jurisdiction_id,
             params.case_id,
             params.subject_ids,
-            params.next_objects,
+            next_object,
             renderer=params.renderer,
         )
         if not new_chain:
@@ -83,7 +84,7 @@ def finalize(
         save_doc_task_id_sync(
             params.jurisdiction_id,
             params.case_id,
-            new_active_task.document.root.documentId,
+            next_object.document.root.documentId,
             str(next_task),
         )
 
@@ -101,6 +102,39 @@ def format_errors(errors: list[ProcessingError]) -> str | None:
     if not errors:
         return None
     return json.dumps([err.model_dump() for err in errors])
+
+
+def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget | None:
+    """Get the next objects to redact for a case.
+
+    Args:
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+
+    Returns:
+        RedactionTarget: The next object to redact, or None.
+    """
+
+    async def _get_objects() -> RedactionTarget | None:
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
+                doc_tasks = await cs.get_doc_tasks()
+                while True:
+                    next_object = await cs.pop_object()
+                    if not next_object:
+                        return None
+                    # Validate that the next object needs to be redacted.
+                    existing_task = doc_tasks.get(next_object.document.root.documentId)
+                    if not existing_task:
+                        return next_object
+                    task = get_result(existing_task)
+                    if task.state == "SUCCESS":
+                        continue
+                    return next_object
+
+    return asyncio.run(_get_objects())
 
 
 def save_doc_task_id_sync(

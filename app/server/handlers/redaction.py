@@ -109,13 +109,21 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
 
     subj_ids_list = list(subject_ids)
 
+    # TODO(jnu): make sure that document is not currently being redacted!
+    # Basically, it doesn't matter if the document is already redacted, but
+    # we should not start a new redaction task if the document is already being
+    # redacted. This is because we want to iteratively build information about
+    # the case from each document. If we start a new task while a chain is in
+    # progress, we can't use that context.
+    # TODO(jnu): decide if we should just reject the request, or enqueue it.
+
     # Create a task chain to process the documents. The chain will
     # iteratively create new chains for each document in the request.
     task_chain = create_document_redaction_task(
         body.jurisdictionId,
         body.caseId,
         subj_ids_list,
-        body.objects,
+        body.objects[0],
         renderer=body.outputFormat or OutputFormat.PDF,
     )
 
@@ -123,16 +131,15 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         # Unclear why we would ever get here, but throw an error just in case.
         raise HTTPException(status_code=500, detail="Failed to create redaction task")
 
+    # Save the list of objects that need to be redacted for future reference.
+    await store.save_objects_list(body.objects)
+
     # Start the task chain
     task_id = task_chain.apply_async()
     doc_id = body.objects[0].document.root.documentId
     logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
     # Save the new task to the database
     await store.save_doc_task(doc_id, str(task_id))
-    # Save placeholders for the rest of the documents to indicate they
-    # have not been created yet, but we expect them to be soon.
-    for obj in body.objects[1:]:
-        await store.save_doc_task(obj.document.root.documentId, "")
 
 
 def process_subject(subject: SubjectModel) -> list[HumanNameModel]:

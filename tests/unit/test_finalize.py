@@ -2,6 +2,7 @@ from app.server.db import DocumentStatus
 from app.server.generated.models import Document, DocumentLink
 from app.server.tasks import (
     CallbackTaskResult,
+    FinalizeTask,
     FinalizeTaskResult,
     FormatTaskResult,
     ProcessingError,
@@ -30,7 +31,14 @@ def test_finalize_no_experiments_success(config):
         ),
     )
 
-    result = finalize.s(cb).apply()
+    ft = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer="PDF",
+    )
+
+    result = finalize.s(cb, ft).apply()
     assert result.get() == FinalizeTaskResult.model_validate(
         {
             "jurisdiction_id": "jur1",
@@ -63,7 +71,14 @@ def test_finalize_no_experiments_failed(config):
         ),
     )
 
-    result = finalize.s(cb).apply()
+    ft = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer="PDF",
+    )
+
+    result = finalize.s(cb, ft).apply()
     assert result.get() == FinalizeTaskResult.model_validate(
         {
             "jurisdiction_id": "jur1",
@@ -96,7 +111,14 @@ def test_finalize_experiments_success(config, exp_db):
         ),
     )
 
-    result = finalize.s(cb).apply()
+    ft = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer="PDF",
+    )
+
+    result = finalize.s(cb, ft).apply()
     assert result.get() == FinalizeTaskResult.model_validate(
         {
             "jurisdiction_id": "jur1",
@@ -143,7 +165,14 @@ def test_finalize_experiments_failed(config, exp_db):
         ),
     )
 
-    result = finalize.s(cb).apply()
+    ft = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer="PDF",
+    )
+
+    result = finalize.s(cb, ft).apply()
     assert result.get() == FinalizeTaskResult.model_validate(
         {
             "jurisdiction_id": "jur1",

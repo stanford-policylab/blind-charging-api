@@ -8,6 +8,7 @@ from app.server.generated.models import Document, DocumentLink
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
+    FinalizeTask,
     FormatTask,
     RedactionTask,
     callback,
@@ -84,7 +85,14 @@ async def test_redact_handler(
         ),
         format.s(FormatTask(target_blob_url=None)),
         callback.s(CallbackTask(callback_url="https://echo/")),
-        finalize.s(),
+        finalize.s(
+            FinalizeTask(
+                jurisdiction_id="jur1",
+                case_id="case1",
+                subject_ids=["sub1"],
+                renderer="PDF",
+            )
+        ),
     )
 
     # Check that the right stuff was stored in redis

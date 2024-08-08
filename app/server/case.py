@@ -1,7 +1,7 @@
 import logging
 from typing import cast
 
-from .generated.models import HumanName, MaskedSubject
+from .generated.models import HumanName, MaskedSubject, RedactionTarget
 from .store import SimpleMapping, StoreSession
 
 logger = logging.getLogger(__name__)
@@ -148,6 +148,32 @@ class CaseStore:
             {doc_id: str(task_id)},
         )
         await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def save_objects_list(self, objects: list[RedactionTarget]):
+        """Save the objects list for a case.
+
+        Args:
+            objects (list[RedactionTarget]): The objects.
+
+        Returns:
+            None
+        """
+        k = self.key("objects")
+        for obj in objects:
+            await self.store.enqueue_model(k, obj)
+        await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def pop_object(self) -> RedactionTarget | None:
+        """Pop an object from the objects list.
+
+        Returns:
+            RedactionTarget: The object.
+        """
+        k = self.key("objects")
+        obj = await self.store.dequeue_model(RedactionTarget, k)
+        return obj
 
     @ensure_init
     async def save_real_name(
