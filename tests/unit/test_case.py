@@ -143,4 +143,7 @@ async def test_get_name_mask_map(fake_redis_store: FakeRedis, config: Config, sp
             await cs.init("jur1", "case1")
             mask_info = await cs.get_mask_info()
             assert mask_info.get_name_mask_map() == spec["expected_name_mask_map"]
+            assert mask_info.get_mask_name_map() == {
+                v: k for k, v in spec["expected_name_mask_map"].items()
+            }
             assert mask_info.get_id_name_map() == spec["expected_id_name_map"]

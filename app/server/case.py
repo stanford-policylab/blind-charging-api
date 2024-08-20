@@ -18,18 +18,73 @@ class MaskInfo:
     """A collection of masks for a case."""
 
     def __init__(self, initial: dict[bytes, SavedMask] | None = None):
+        """Initialize the store optionally with a dictionary of masks.
+
+        Args:
+            initial (dict[bytes, SavedMask], optional): The initial masks.
+        """
         self._masks = initial or {}
 
     def get(self, subject_id: bytes) -> SavedMask:
+        """Get the mask info for a subject by ID.
+
+        Args:
+            subject_id (bytes): The subject ID.
+
+        Returns:
+            SavedMask: The mask info.
+        """
         return self._masks[subject_id]
 
     def set(self, subject_id: bytes, mask_info: SavedMask):
+        """Set the mask info for a subject by ID.
+
+        Args:
+            subject_id (bytes): The subject ID.
+            mask_info (SavedMask): The mask info.
+        """
         self._masks[subject_id] = mask_info
 
     def get_name_mask_map(self) -> dict[str, str]:
+        """Get the map from real names to masks.
+
+        Example:
+            {
+                "John Doe": "Victim 1",
+                "Jane Doe": "Witness 1",
+            }
+
+        Returns:
+            dict[str, str]: The map from real names to masks.
+        """
         return {v.name: v.mask for v in self._masks.values()}
 
+    def get_mask_name_map(self) -> dict[str, str]:
+        """Get the map from masks to real names.
+
+        Example:
+            {
+                "Victim 1": "John Doe",
+                "Witness 1": "Jane Doe",
+            }
+
+        Returns:
+            dict[str, str]: The map from masks to real names.
+        """
+        return {v.mask: v.name for v in self._masks.values()}
+
     def get_id_name_map(self) -> dict[str, str]:
+        """Get the map from subject IDs to real names.
+
+        Example:
+            {
+                "1": "John Doe",
+                "2": "Jane Doe",
+            }
+
+        Returns:
+            dict[str, str]: The map from subject IDs to real names.
+        """
         return {k.decode(): v.name for k, v in self._masks.items()}
 
 
