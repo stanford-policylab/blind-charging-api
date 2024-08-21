@@ -1,6 +1,7 @@
 from functools import cached_property
 from typing import Literal
 
+from fastapi import Request
 from pydantic import BaseModel
 
 from .base import BaseAuthnDriver
@@ -15,5 +16,5 @@ class NoAuthnConfig(BaseModel):
 
 
 class NoAuthnDriver(BaseAuthnDriver):
-    def validate_request(self, request):
+    async def validate_request(self, request: Request, scopes: list[str]):
         pass

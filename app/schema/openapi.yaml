@@ -214,13 +214,13 @@ paths:
           description: "Accepted"
 
 security:
-  - PresharedAuth: []
+  - preshared: []
 
 # Data types
 components:
   parameters: {}
   securitySchemes:
-    PresharedAuth:
+    preshared:
       type: http
       scheme: bearer
 

@@ -1,6 +1,7 @@
 from functools import cached_property
 from typing import Literal
 
+from fastapi import Request
 from pydantic import BaseModel
 
 from .base import BaseAuthnDriver, NotAuthenticated
@@ -40,7 +41,7 @@ class PresharedSecretAuthnDriver(BaseAuthnDriver):
     def __init__(self, secrets: str | list[str]):
         self._secrets = set(secrets) if isinstance(secrets, list) else {secrets}
 
-    def validate_request(self, request):
+    async def validate_request(self, request: Request, scopes: list[str]):
         token = get_bearer_token_from_header(request)
         if not token:
             raise NotAuthenticated("Missing bearer token")

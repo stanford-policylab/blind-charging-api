@@ -11,11 +11,12 @@ class NotAuthenticated(Exception):
 
 class BaseAuthnDriver(ABC):
     @abstractmethod
-    def validate_request(self, request: Request):
+    async def validate_request(self, request: Request, scopes: list[str]):
         """Validate an incoming request.
 
         Args:
             request (Request): The incoming request.
+            scopes (list[str]): The required scopes.
 
         Raises:
             NotAuthenticated: If the request is not authenticated
