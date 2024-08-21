@@ -33,6 +33,7 @@ paths:
       summary: Health check
       description: |
         Check the health of the API.
+      security: []
       tags:
         - operations
       operationId: health-check
@@ -212,9 +213,17 @@ paths:
         "201":
           description: "Accepted"
 
+security:
+  - PresharedAuth: []
+
 # Data types
 components:
   parameters: {}
+  securitySchemes:
+    PresharedAuth:
+      type: http
+      scheme: bearer
+
   schemas:
 
     Error:
