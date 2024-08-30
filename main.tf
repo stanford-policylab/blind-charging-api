@@ -108,7 +108,7 @@ resource "azurerm_mssql_server" "main" {
   resource_group_name          = azurerm_resource_group.main.name
   location                     = azurerm_resource_group.main.location
   version                      = "12.0"
-  administrator_login          = "sa"
+  administrator_login          = "bcadmin"
   administrator_login_password = var.db_password
   tags                         = var.tags
 }
@@ -117,7 +117,7 @@ resource "azurerm_mssql_database" "main" {
   name           = format("%s-rbc-db", var.partner)
   server_id      = azurerm_mssql_server.main.id
   collation      = "SQL_Latin1_General_CP1_CI_AS"
-  max_size_gb    = 4
+  max_size_gb    = 5
   sku_name       = "S0"
   zone_redundant = false
   tags           = var.tags
@@ -131,7 +131,7 @@ resource "azurerm_virtual_network" "main" {
   name                = format("%s-rbc-vnet", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  address_space       = ["10.0.0.6/16"]
+  address_space       = ["10.0.0.0/16"]
   tags                = var.tags
 }
 
