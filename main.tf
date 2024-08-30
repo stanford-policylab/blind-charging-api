@@ -33,10 +33,6 @@ terraform {
   required_version = ">= 1.5.7"
 }
 
-variable "tenant_id" {
-  type = string
-}
-
 variable "subscription_id" {
   type = string
 }
@@ -60,9 +56,9 @@ variable "azure_env" {
   default = "usgovernment"
 }
 
-variable "ssh_pub_key" {
-  type    = string
-  default = "~/.ssh/id_rsa.pub"
+variable "registry_password" {
+  type      = string
+  sensitive = true
 }
 
 variable "tags" {
@@ -73,15 +69,30 @@ variable "tags" {
   }
 }
 
-provider "azurerm" {
-  tenant_id       = var.tenant_id
-  subscription_id = var.subscription_id
-  features {}
-  environment = var.azure_env
+# NOTE: this should *always* be true in production
+# Only disable this when the Azure subscription has not been approved to disable filters,
+# and we want to deploy the infrastructure anyway. (It must then be enabled later, or the
+# race-blind API will not work as expected.)
+variable "disable_content_filter" {
+  type    = bool
+  default = true
 }
 
+provider "azurerm" {
+  subscription_id = var.subscription_id
+  environment     = var.azure_env
+
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy = true
+    }
+  }
+}
+
+data "azurerm_client_config" "current" {}
+
 provider "azapi" {
-  tenant_id       = var.tenant_id
+  tenant_id       = data.azurerm_client_config.current.tenant_id
   subscription_id = var.subscription_id
   environment     = var.azure_env
 }
@@ -155,6 +166,7 @@ resource "azurerm_cognitive_account" "main" {
 # TODO(jnu): azurerm does not support the content filter resource yet.check "name"
 # See https://github.com/hashicorp/terraform-provider-azurerm/issues/22822
 resource "azapi_resource" "no_content_filter" {
+  count                     = var.disable_content_filter ? 1 : 0
   type                      = "Microsoft.CognitiveServices/accounts/raiPolicies@2023-10-01-preview"
   name                      = "NoFilter"
   parent_id                 = azurerm_cognitive_account.main.id
@@ -196,7 +208,7 @@ resource "azurerm_cognitive_deployment" "main" {
     tier     = "Standard"
     capacity = 80
   }
-  rai_policy_name        = azapi_resource.no_content_filter.name
+  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter.name : "Default"
   version_upgrade_option = "NoAutoUpgrade"
 }
 
@@ -254,7 +266,45 @@ resource "azurerm_container_app_environment" "main" {
   location                   = azurerm_resource_group.main.location
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = var.tags
+
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 1
+    maximum_count         = 2
+  }
 }
+
+
+resource "azurerm_key_vault" "main" {
+  name                = format("%s-rbc-kv", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  sku_name            = "standard"
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  tags                = var.tags
+
+  access_policy {
+    tenant_id       = data.azurerm_client_config.current.tenant_id
+    object_id       = data.azurerm_client_config.current.object_id
+    key_permissions = ["Create", "Get"]
+
+    secret_permissions = [
+      "Set",
+      "Get",
+      "Delete",
+      "Purge",
+      "Recover",
+    ]
+  }
+}
+
+resource "azurerm_key_vault_secret" "registry_password" {
+  name         = "registry-password"
+  value        = var.registry_password
+  key_vault_id = azurerm_key_vault.main.id
+}
+
 
 resource "azurerm_container_app" "main" {
   name                         = format("%s-rbc-app", var.partner)
@@ -263,10 +313,23 @@ resource "azurerm_container_app" "main" {
   tags                         = var.tags
   revision_mode                = "Single"
 
+  secret {
+    name                = "registry-password"
+    key_vault_secret_id = azurerm_key_vault_secret.registry_password.id
+    identity            = "System"
+  }
+
+  registry {
+    server               = "blindchargingapi.azurecr.io"
+    username             = var.partner
+    password_secret_name = "registry-password"
+  }
+
   template {
     container {
-      name    = "rbc-api"
-      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
+      name  = "rbc-api"
+      image = "blindchargingapi.azurecr.io/blind-charging-api:latest"
+
       cpu     = 1.0
       memory  = "2Gi"
       command = ["uvicorn", "app.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--app-dir", "/code/"]
