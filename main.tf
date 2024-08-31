@@ -1,22 +1,9 @@
-# README
+# NOTE
 #
-# In order to use Terraform with Azure, you will need to create a service account.
-#
-# You will also of course need the Azure CLI installed.
-#
-# For example, to create a GovCloud service account, run the following:
+# Be sure to authenticate via the Azure CLI with the correct tenant before running Terraform.
 #
 #  > az cloud set -n AzureUSGovernment
 #  > az login
-#
-# You will need to insert the following information into your tfvars file:
-#  > SUBSCRIPTION=$(az account show --query id -o tsv)
-#  > TENANT_ID=$(az account show --query tenantId -o tsv)
-#  > echo "Subscription: $SUBSCRIPTION"
-#  > echo "TenantId: $TENANT_ID"
-#
-# Create the service account:
-#  > az ad sp create-for-rbac -n Terraform --role Contributor --scopes /subscriptions/$SUBSCRIPTION
 
 terraform {
   required_providers {
@@ -39,6 +26,11 @@ variable "subscription_id" {
 
 variable "partner" {
   type = string
+}
+
+variable "db_user" {
+  type    = string
+  default = "bcadmin"
 }
 
 variable "db_password" {
@@ -83,9 +75,6 @@ provider "azurerm" {
   environment     = var.azure_env
 
   features {
-    key_vault {
-      purge_soft_delete_on_destroy = true
-    }
   }
 }
 
@@ -115,13 +104,14 @@ resource "azurerm_redis_cache" "main" {
 }
 
 resource "azurerm_mssql_server" "main" {
-  name                         = format("%s-rbc-sql", var.partner)
-  resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
-  version                      = "12.0"
-  administrator_login          = "bcadmin"
-  administrator_login_password = var.db_password
-  tags                         = var.tags
+  name                          = format("%s-rbc-sql", var.partner)
+  resource_group_name           = azurerm_resource_group.main.name
+  location                      = azurerm_resource_group.main.location
+  version                       = "12.0"
+  administrator_login           = var.db_user
+  administrator_login_password  = var.db_password
+  tags                          = var.tags
+  public_network_access_enabled = false
 }
 
 resource "azurerm_mssql_database" "main" {
@@ -136,6 +126,13 @@ resource "azurerm_mssql_database" "main" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+resource "azurerm_mssql_firewall_rule" "app" {
+  name             = format("%s-rbc-db-fw", var.partner)
+  server_id        = azurerm_mssql_server.main.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
 }
 
 resource "azurerm_virtual_network" "main" {
@@ -154,13 +151,24 @@ resource "azurerm_subnet" "default" {
   service_endpoints    = ["Microsoft.CognitiveServices"]
 }
 
-resource "azurerm_cognitive_account" "main" {
-  name                = format("%s-rbc-cognitive", var.partner)
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku_name            = "S0"
-  kind                = "OpenAI"
-  tags                = var.tags
+resource "azurerm_cognitive_account" "fr" {
+  name                  = format("%s-rbc-cs-fr", var.partner)
+  resource_group_name   = azurerm_resource_group.main.name
+  location              = azurerm_resource_group.main.location
+  sku_name              = "S0"
+  kind                  = "FormRecognizer"
+  tags                  = var.tags
+  custom_subdomain_name = format("%s-rbc-cs-fr", var.partner)
+}
+
+resource "azurerm_cognitive_account" "openai" {
+  name                  = format("%s-rbc-cs-oai", var.partner)
+  resource_group_name   = azurerm_resource_group.main.name
+  location              = azurerm_resource_group.main.location
+  sku_name              = "S0"
+  kind                  = "OpenAI"
+  tags                  = var.tags
+  custom_subdomain_name = format("%s-rbc-cs-oai", var.partner)
 }
 
 # TODO(jnu): azurerm does not support the content filter resource yet.check "name"
@@ -169,7 +177,7 @@ resource "azapi_resource" "no_content_filter" {
   count                     = var.disable_content_filter ? 1 : 0
   type                      = "Microsoft.CognitiveServices/accounts/raiPolicies@2023-10-01-preview"
   name                      = "NoFilter"
-  parent_id                 = azurerm_cognitive_account.main.id
+  parent_id                 = azurerm_cognitive_account.openai.id
   schema_validation_enabled = false
   body = jsonencode({
     name = "NoFilter"
@@ -192,12 +200,12 @@ resource "azapi_resource" "no_content_filter" {
       ]
     }
   })
-  depends_on = [azurerm_cognitive_account.main]
+  depends_on = [azurerm_cognitive_account.openai]
 }
 
-resource "azurerm_cognitive_deployment" "main" {
-  name                 = format("%s-rbc-cognitive-deployment", var.partner)
-  cognitive_account_id = azurerm_cognitive_account.main.id
+resource "azurerm_cognitive_deployment" "llm" {
+  name                 = format("%s-rbc-oai-llm", var.partner)
+  cognitive_account_id = azurerm_cognitive_account.openai.id
   model {
     format  = "OpenAI"
     name    = "gpt-4o"
@@ -205,10 +213,9 @@ resource "azurerm_cognitive_deployment" "main" {
   }
   sku {
     name     = "Standard"
-    tier     = "Standard"
     capacity = 80
   }
-  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter.name : "Default"
+  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Default"
   version_upgrade_option = "NoAutoUpgrade"
 }
 
@@ -225,14 +232,14 @@ resource "azurerm_private_endpoint" "mssql" {
   }
 }
 
-resource "azurerm_private_endpoint" "cognitive" {
-  name                = format("%s-rbc-cognitive-pe", var.partner)
+resource "azurerm_private_endpoint" "openai" {
+  name                = format("%s-rbc-cs-oai-pe", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.default.id
   private_service_connection {
-    name                           = "cognitive-psc"
-    private_connection_resource_id = azurerm_cognitive_account.main.id
+    name                           = "cs-oai-psc"
+    private_connection_resource_id = azurerm_cognitive_account.openai.id
     subresource_names              = ["account"]
     is_manual_connection           = false
   }
@@ -249,6 +256,31 @@ resource "azurerm_private_endpoint" "redis" {
     subresource_names              = ["redisCache"]
     is_manual_connection           = false
   }
+}
+
+resource "azurerm_private_endpoint" "fr" {
+  name                = format("%s-rbc-cs-fr-pe", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.default.id
+  private_service_connection {
+    name                           = "cs-fr-psc"
+    private_connection_resource_id = azurerm_cognitive_account.fr.id
+    subresource_names              = ["account"]
+    is_manual_connection           = false
+  }
+}
+
+resource "azurerm_private_dns_zone" "main" {
+  name                = format("%s.rbc.cpl.azure.com", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "main" {
+  name                  = format("%s-rbc-dns-link", var.partner)
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.main.name
+  virtual_network_id    = azurerm_virtual_network.main.id
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
@@ -275,36 +307,119 @@ resource "azurerm_container_app_environment" "main" {
   }
 }
 
+locals {
+  app_config_toml = <<EOF
+debug = true
 
-resource "azurerm_key_vault" "main" {
-  name                = format("%s-rbc-kv", var.partner)
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku_name            = "standard"
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-  tags                = var.tags
+[queue]
 
-  access_policy {
-    tenant_id       = data.azurerm_client_config.current.tenant_id
-    object_id       = data.azurerm_client_config.current.object_id
-    key_permissions = ["Create", "Get"]
+[queue.store]
+engine = "redis"
+host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
+ssl = true
+port = 6380
+password = "${azurerm_redis_cache.main.primary_access_key}"
+database = 0
 
-    secret_permissions = [
-      "Set",
-      "Get",
-      "Delete",
-      "Purge",
-      "Recover",
-    ]
-  }
+[queue.broker]
+engine = "redis"
+ssl = true
+host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
+port = 6380
+password = "${azurerm_redis_cache.main.primary_access_key}"
+database = 1
+
+[experiments]
+enabled = true
+automigrate = false
+
+[experiments.store]
+engine = "mssql"
+user = "${var.db_user}"
+password = "${var.db_password}"
+host = "${azurerm_private_endpoint.mssql.custom_dns_configs.0.fqdn}"
+database = "${azurerm_mssql_database.main.name}"
+
+[processor]
+# Configure the processing pipeline.
+
+[[processor.pipe]]
+# 1) Extract / OCR with Azure DI
+engine = "extract:azuredi"
+endpoint = "${azurerm_cognitive_account.fr.endpoint}"
+api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
+extract_labeled_text = false
+
+[[processor.pipe]]
+# 2) Parse textual output into coherent narrative with OpenAI
+engine = "parse:openai"
+[processor.pipe.client]
+azure_endpoint = "${azurerm_cognitive_account.openai.endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+
+[processor.pipe.generator]
+method = "chat"
+model = "${azurerm_cognitive_deployment.llm.model[0].name}"
+system = { prompt = """\
+I am providing you with a list of paragraphs extracted from a \
+police report via Azure Document Intelligence.
+
+Please extract any and all paragraphs in this output that were \
+derived from a police narrative. A police narrative is a detailed \
+account of events that occurred during a police incident. It typically \
+includes information such as the date, time, location, and description \
+of the incident, as well as the actions taken by the police officers \
+involved.
+
+You should return back ONLY these paragraphs. Do not return anything \
+else.
+
+If you are unable to identify any police narratives in the output, \
+please return an empty string.""" }
+
+[[processor.pipe]]
+# 3) Redact racial information with OpenAI
+engine = "redact:openai"
+delimiters = ["[", "]"]
+[processor.pipe.client]
+azure_endpoint = "${azurerm_cognitive_account.openai.endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+
+[processor.pipe.generator]
+method = "chat"
+model = "${azurerm_cognitive_deployment.llm.model[0].name}"
+system = { prompt = """\
+Your job is to redact all race-related information in the provided \
+text. Race-related information is any word from the following strict \
+categories:
+- Explicit mentions of race or ethnicity
+- People's names
+- Physical descriptions: Hair color, eye color, or skin color ONLY
+- Location information: Addresses, neighborhood names, commercial \
+establishment names, or major landmarks
+
+Do NOT redact any other types of information, e.g., do not redact \
+dates, objects, or other types of words not listed here.
+
+Replace any person's name with an abbreviation indicating their role \
+in the incident. For example, for the first mentioned victim, use
+"[Victim 1]". Similarly, for the second mentioned victim, use \
+"[Victim 2]". Be as specific as possible about their role (e.g., \
+"Officer Smith and Sergeant Doe" should become "[Officer 1] and \
+[Sergeant 1]"). If a person's role in the incident is unclear, \
+use a generic “[Person X]” (with X replaced by the appropriate \
+number).
+
+If "John Doe" appears in the list of individuals, and then "Johnny \
+D." appears in the narrative, use context to decide if "Johnny D." \
+should be redacted with the same replacement as "John Doe." \
+Similarly, if "Safeway" appears in the list of locations with \
+abbreviation [Store 1], "Safeway Deli" should be redacted as \
+"[Store 1] Deli".""" }
+EOF
 }
-
-resource "azurerm_key_vault_secret" "registry_password" {
-  name         = "registry-password"
-  value        = var.registry_password
-  key_vault_id = azurerm_key_vault.main.id
-}
-
 
 resource "azurerm_container_app" "main" {
   name                         = format("%s-rbc-app", var.partner)
@@ -313,10 +428,23 @@ resource "azurerm_container_app" "main" {
   tags                         = var.tags
   revision_mode                = "Single"
 
+  timeouts {
+    create = "30m"
+    update = "30m"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
   secret {
-    name                = "registry-password"
-    key_vault_secret_id = azurerm_key_vault_secret.registry_password.id
-    identity            = "System"
+    name  = "registry-password"
+    value = var.registry_password
+  }
+
+  secret {
+    name  = "app-config"
+    value = local.app_config_toml
   }
 
   registry {
@@ -326,13 +454,44 @@ resource "azurerm_container_app" "main" {
   }
 
   template {
-    container {
-      name  = "rbc-api"
-      image = "blindchargingapi.azurecr.io/blind-charging-api:latest"
 
+    volume {
+      name         = "secrets"
+      storage_type = "Secret"
+    }
+
+    init_container {
+      name    = "rbc-init-ensure-db"
+      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
       cpu     = 1.0
       memory  = "2Gi"
-      command = ["uvicorn", "app.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--app-dir", "/code/"]
+      command = ["python"]
+      args    = ["-m", "app.server", "create-db"]
+      volume_mounts {
+        name = "secrets"
+        path = "/secrets"
+      }
+      env {
+        name  = "CONFIG_PATH"
+        value = "/secrets/app-config"
+      }
+    }
+
+    container {
+      name    = "rbc-api"
+      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
+      cpu     = 1.0
+      memory  = "2Gi"
+      command = ["uvicorn"]
+      args    = ["app.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--app-dir", "/code/"]
+      volume_mounts {
+        name = "secrets"
+        path = "/secrets"
+      }
+      env {
+        name  = "CONFIG_PATH"
+        value = "/secrets/app-config"
+      }
       liveness_probe {
         host             = "localhost"
         path             = "/api/v1/health"
@@ -348,7 +507,16 @@ resource "azurerm_container_app" "main" {
       image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
       cpu     = 1.0
       memory  = "2Gi"
-      command = ["python", "-m", "app.server", "worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
+      command = ["python"]
+      args    = ["-m", "app.server", "worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
+      volume_mounts {
+        name = "secrets"
+        path = "/secrets"
+      }
+      env {
+        name  = "CONFIG_PATH"
+        value = "/secrets/app-config"
+      }
       liveness_probe {
         host             = "localhost"
         path             = "/health"
