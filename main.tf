@@ -171,7 +171,7 @@ resource "azurerm_cognitive_account" "openai" {
   custom_subdomain_name = format("%s-rbc-cs-oai", var.partner)
 }
 
-# TODO(jnu): azurerm does not support the content filter resource yet.check "name"
+# TODO(jnu): azurerm does not support the content filter resource yet.
 # See https://github.com/hashicorp/terraform-provider-azurerm/issues/22822
 resource "azapi_resource" "no_content_filter" {
   count                     = var.disable_content_filter ? 1 : 0
