@@ -1,6 +1,18 @@
 locals {
+  db_config = <<EOF
+engine = "mssql"
+user = "${var.db_user}"
+password = "${var.db_password}"
+host = "${azurerm_private_endpoint.mssql.custom_dns_configs.0.fqdn}"
+database = "${azurerm_mssql_database.main.name}"
+EOF
+
   app_config_toml = <<EOF
-debug = true
+debug = ${var.debug}
+
+${var.app_auth != "none" ? "[authentication]\nmethod = \"${var.app_auth}\"\n" : ""}
+${(var.app_auth == "client_credentials" || var.app_auth == "preshared") ? "secret = \"${var.app_auth_secret}\"\n" : ""}
+${var.app_auth == "client_credentials" ? "[authentication.store]\n${local.db_config}\n" : ""}
 
 [queue]
 
@@ -25,11 +37,7 @@ enabled = true
 automigrate = false
 
 [experiments.store]
-engine = "mssql"
-user = "${var.db_user}"
-password = "${var.db_password}"
-host = "${azurerm_private_endpoint.mssql.custom_dns_configs.0.fqdn}"
-database = "${azurerm_mssql_database.main.name}"
+${local.db_config}
 
 [processor]
 # Configure the processing pipeline.

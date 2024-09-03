@@ -1,10 +1,3 @@
-# NOTE
-#
-# Be sure to authenticate via the Azure CLI with the correct tenant before running Terraform.
-#
-#  > az cloud set -n AzureUSGovernment
-#  > az login
-
 terraform {
   required_providers {
     azurerm = {

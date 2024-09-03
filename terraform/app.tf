@@ -14,12 +14,15 @@ resource "azurerm_container_app_environment" "main" {
   location                   = azurerm_resource_group.main.location
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = var.tags
+  infrastructure_subnet_id   = azurerm_subnet.app.id
 
   workload_profile {
-    name                  = "rbc-wl"
-    workload_profile_type = "D4"
-    minimum_count         = 1
-    maximum_count         = 2
+    # TODO(jnu): Dedicated workload profile does not seem to be supported,
+    # but will be needed for production.
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+    minimum_count         = 2
+    maximum_count         = 3
   }
 }
 
@@ -53,6 +56,17 @@ resource "azurerm_container_app" "main" {
     server               = "blindchargingapi.azurecr.io"
     username             = var.partner
     password_secret_name = "registry-password"
+  }
+
+  ingress {
+    allow_insecure_connections = false
+    target_port                = 8000
+    external_enabled           = var.expose_app
+    transport                  = "http"
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
   }
 
   template {
