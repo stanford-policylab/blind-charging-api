@@ -22,7 +22,7 @@ host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
 ssl = true
 port = 6380
 password = "${azurerm_redis_cache.main.primary_access_key}"
-database = 0
+db = 0
 
 [queue.broker]
 engine = "redis"
@@ -30,7 +30,7 @@ ssl = true
 host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
 port = 6380
 password = "${azurerm_redis_cache.main.primary_access_key}"
-database = 1
+db = 1
 
 [experiments]
 enabled = true
@@ -59,7 +59,7 @@ api_version = "2024-06-01"
 
 [processor.pipe.generator]
 method = "chat"
-model = "${azurerm_cognitive_deployment.llm.model[0].name}"
+model = "${azurerm_cognitive_deployment.llm.name}"
 system = { prompt = """\
 I am providing you with a list of paragraphs extracted from a \
 police report via Azure Document Intelligence.
@@ -88,7 +88,7 @@ api_version = "2024-06-01"
 
 [processor.pipe.generator]
 method = "chat"
-model = "${azurerm_cognitive_deployment.llm.model[0].name}"
+model = "${azurerm_cognitive_deployment.llm.name}"
 system = { prompt = """\
 Your job is to redact all race-related information in the provided \
 text. Race-related information is any word from the following strict \

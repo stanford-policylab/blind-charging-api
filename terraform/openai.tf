@@ -1,13 +1,3 @@
-resource "azurerm_cognitive_account" "fr" {
-  name                  = format("%s-rbc-cs-fr", var.partner)
-  resource_group_name   = azurerm_resource_group.main.name
-  location              = azurerm_resource_group.main.location
-  sku_name              = "S0"
-  kind                  = "FormRecognizer"
-  tags                  = var.tags
-  custom_subdomain_name = format("%s-rbc-cs-fr", var.partner)
-}
-
 resource "azurerm_cognitive_account" "openai" {
   name                  = format("%s-rbc-cs-oai", var.partner)
   resource_group_name   = azurerm_resource_group.main.name
@@ -66,19 +56,6 @@ resource "azurerm_cognitive_deployment" "llm" {
   version_upgrade_option = "NoAutoUpgrade"
 }
 
-resource "azurerm_private_endpoint" "fr" {
-  name                = format("%s-rbc-cs-fr-pe", var.partner)
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  subnet_id           = azurerm_subnet.default.id
-  private_service_connection {
-    name                           = "cs-fr-psc"
-    private_connection_resource_id = azurerm_cognitive_account.fr.id
-    subresource_names              = ["account"]
-    is_manual_connection           = false
-  }
-}
-
 resource "azurerm_private_endpoint" "openai" {
   name                = format("%s-rbc-cs-oai-pe", var.partner)
   resource_group_name = azurerm_resource_group.main.name
@@ -89,5 +66,9 @@ resource "azurerm_private_endpoint" "openai" {
     private_connection_resource_id = azurerm_cognitive_account.openai.id
     subresource_names              = ["account"]
     is_manual_connection           = false
+  }
+  private_dns_zone_group {
+    name                 = "pdz-cs-oai"
+    private_dns_zone_ids = [azurerm_private_dns_zone.main.id]
   }
 }

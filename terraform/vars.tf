@@ -40,8 +40,8 @@ variable "azure_env" {
 
 variable "expose_app" {
   type        = bool
-  default     = false
-  description = "Expose the app to the internet."
+  default     = true
+  description = "Expose the app outside of the app environment."
 }
 
 variable "app_auth" {

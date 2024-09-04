@@ -21,4 +21,9 @@ resource "azurerm_private_endpoint" "redis" {
     subresource_names              = ["redisCache"]
     is_manual_connection           = false
   }
+
+  private_dns_zone_group {
+    name                 = "pdz-redis"
+    private_dns_zone_ids = [azurerm_private_dns_zone.main.id]
+  }
 }
