@@ -29,5 +29,5 @@ resource "azurerm_private_endpoint" "redis" {
 }
 
 locals {
-  redis_fqdn = format("%s.%s", azurerm_redis_cache.main.name, azurerm_private_dns_zone.redis.name)
+  redis_fqdn = azurerm_redis_cache.main.hostname
 }

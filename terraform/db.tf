@@ -43,5 +43,5 @@ resource "azurerm_private_endpoint" "mssql" {
 }
 
 locals {
-  mssql_fqdn = format("%s.%s", azurerm_mssql_server.main.name, azurerm_private_dns_zone.mssql.name)
+  mssql_fqdn = azurerm_mssql_server.main.fully_qualified_domain_name
 }

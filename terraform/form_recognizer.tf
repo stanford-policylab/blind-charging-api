@@ -26,5 +26,5 @@ resource "azurerm_private_endpoint" "fr" {
 }
 
 locals {
-  fr_fqdn = format("%s.%s", azurerm_cognitive_account.fr.custom_subdomain_name, azurerm_private_dns_zone.fr.name)
+  fr_endpoint = azurerm_cognitive_account.fr.endpoint
 }

@@ -49,7 +49,7 @@ ${local.db_config}
 [[processor.pipe]]
 # 1) Extract / OCR with Azure DI
 engine = "extract:azuredi"
-endpoint = "${local.fr_fqdn}"
+endpoint = "${local.fr_endpoint}"
 api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
 extract_labeled_text = false
 
@@ -57,7 +57,7 @@ extract_labeled_text = false
 # 2) Parse textual output into coherent narrative with OpenAI
 engine = "parse:openai"
 [processor.pipe.client]
-azure_endpoint = "${local.openai_fqdn}"
+azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 
@@ -86,7 +86,7 @@ please return an empty string.""" }
 engine = "redact:openai"
 delimiters = ["[", "]"]
 [processor.pipe.client]
-azure_endpoint = "${local.openai_fqdn}"
+azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 

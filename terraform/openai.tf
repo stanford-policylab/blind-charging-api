@@ -74,5 +74,5 @@ resource "azurerm_private_endpoint" "openai" {
 }
 
 locals {
-  openai_fqdn = format("%s.%s", azurerm_cognitive_account.openai.custom_subdomain_name, azurerm_private_dns_zone.openai.name)
+  openai_endpoint = azurerm_cognitive_account.openai.endpoint
 }
