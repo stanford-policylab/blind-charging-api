@@ -11,12 +11,10 @@ from .provision import init_provision_cli
 
 logger = logging.getLogger(__name__)
 
-cli = typer.Typer()
-
-init_provision_cli(cli)
+_cli = typer.Typer()
 
 
-@cli.command()
+@_cli.command()
 def create_client(name: str) -> None:
     """Create a new client in the database.
 
@@ -44,12 +42,12 @@ def create_client(name: str) -> None:
         "Store the Client ID and Client Secret in a safe place. "
         "We will not be able to retrieve the secret again.\n"
     )
-    print(f"\tClient Name:\t{name}")
-    print(f"\tClient ID:\t{client.client_id}")
+    print(f"\t  Client Name:\t{name}")
+    print(f"\t    Client ID:\t{client.client_id}")
     print(f"\tClient Secret:\t{client.client_secret}")
 
 
-@cli.command()
+@_cli.command()
 def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
     """Ensure the database exists.
 
@@ -81,7 +79,7 @@ def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
     logger.info("Database created successfully")
 
 
-@cli.command()
+@_cli.command()
 def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
     """Run the database migrations."""
     driver = config.experiments.store.driver
@@ -94,7 +92,7 @@ def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
     logger.info("Database migrations complete")
 
 
-@cli.command()
+@_cli.command()
 def worker(
     liveness_host: str = "127.0.0.1", liveness_port: int = 8001, monitor: bool = True
 ) -> None:
@@ -104,3 +102,20 @@ def worker(
     """
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
         queue.Worker(task_events=monitor).start()
+
+
+init_provision_cli(_cli)
+
+
+def cli():
+    print("""\
+
+██████╗ ██████╗  ██████╗               ██████╗██╗     ██╗
+██╔══██╗██╔══██╗██╔════╝              ██╔════╝██║     ██║
+██████╔╝██████╔╝██║         █████╗    ██║     ██║     ██║
+██╔══██╗██╔══██╗██║         ╚════╝    ██║     ██║     ██║
+██║  ██║██████╔╝╚██████╗              ╚██████╗███████╗██║
+╚═╝  ╚═╝╚═════╝  ╚═════╝               ╚═════╝╚══════╝╚═╝
+
+""")
+    _cli()
