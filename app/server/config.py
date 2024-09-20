@@ -145,7 +145,7 @@ _loud_logger_names = [
     "uvicorn",
     "fastapi",
     "app.",
-    "cmd.",
+    "cli.",
     "pydantic",
     "celery",
     "alligater",
