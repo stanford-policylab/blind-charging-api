@@ -104,6 +104,14 @@ def worker(
         queue.Worker(task_events=monitor).start()
 
 
+@_cli.command()
+def api(host: str = "127.0.0.1", port: int = 8000, workers: int = 1) -> None:
+    """Run the API server.
+
+    Run the API HTTP server on the given host and port.
+    """
+
+
 init_provision_cli(_cli)
 
 
