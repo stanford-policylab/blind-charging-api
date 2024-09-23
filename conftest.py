@@ -252,7 +252,6 @@ def config(
     """
     from app.server.config import config
 
-    os.environ["VALIDATE_TOKEN"] = "no"
     os.environ["CONFIG_PATH"] = config_file.name
 
     # Allow override of the config template with a parameter.
