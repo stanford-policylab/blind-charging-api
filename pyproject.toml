@@ -8,7 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 aiohttp = "3.10.5"
-fastapi = "0.115.0"
+fastapi = {extras = ["standard"], version = "^0.115.0"}
 pyjwt = "^2.8.0"
 pydantic = "^2.7.1"
 sqlalchemy = "2.0.35"

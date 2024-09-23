@@ -1,5 +1,3 @@
-# Set up image based on Poetry / Python3.11
-
 FROM python:3.12.6-slim-bookworm AS buildbox
 
 RUN apt-get update && apt-get install -y apt-transport-https curl gnupg2 git
@@ -30,7 +28,6 @@ WORKDIR /code
 COPY poetry.lock pyproject.toml README.md /code/
 
 # Install dependencies
-# RUN git config --global url."https://x-token-auth:${GH_PAT}@github.com/".insteadOf "git@github.com:"
 RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
 
 # Copy app code
@@ -43,4 +40,4 @@ COPY config.toml /config/
 ENV CONFIG_PATH=/config/config.toml
 
 ENTRYPOINT [ "uvicorn", "app.server:app" ]
-CMD [ "--host", "0.0.0.0", "--port", $PORT, "--workers", "1" ]
+CMD [ "--host", "0.0.0.0", "--port", "$PORT", "--workers", "1", "--proxy-headers" ]
