@@ -22,7 +22,7 @@ from pytest_docker_tools import build, container, fxtr
 
 if TYPE_CHECKING:
     from app.server.lazy import LazyObjectProxy
-    from tests.integration.testutil import TestCallbackServer
+    from tests.integration.testutil import MockCallbackServer
 
 
 DEFAULT_TEST_CONFIG_TPL = """\
@@ -398,10 +398,10 @@ async def fake_redis_store(config, fake_queue_reset) -> AsyncGenerator[FakeRedis
 @pytest.fixture
 def callback_server(
     logger: logging.Logger,
-) -> Generator["TestCallbackServer", None, None]:
+) -> Generator["MockCallbackServer", None, None]:
     """Fixture to provide another HTTP server for testing callbacks."""
-    from tests.integration.testutil import TestCallbackServer
+    from tests.integration.testutil import MockCallbackServer
 
-    cb = TestCallbackServer(logger)
+    cb = MockCallbackServer(logger)
     with cb.run_in_thread():
         yield cb
