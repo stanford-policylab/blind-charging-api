@@ -216,6 +216,9 @@ async def test_redact_handler_no_callback(
     ]
 
     # Now check the response from the sync API
+    from app.server.tasks import get_result
+
+    assert get_result("fake_task_id").backend.client == "foo"
     sync_response = api.get("/api/v1/redact/jur1/case1")
     assert sync_response.status_code == 200
     assert sync_response.json() == {
