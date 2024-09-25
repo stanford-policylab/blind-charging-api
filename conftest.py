@@ -391,7 +391,10 @@ async def fake_queue_reset(config, request) -> None:
 @pytest.fixture
 async def fake_redis_store(config, fake_queue_reset) -> AsyncGenerator[FakeRedis, None]:
     """Fixture to provide a fake Redis server for testing."""
+    from app.server.tasks import queue
+
     with FakeRedis(server=config.queue.store.server) as redis:
+        queue.backend.client = redis
         yield redis
 
 
