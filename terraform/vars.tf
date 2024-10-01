@@ -191,9 +191,43 @@ variable "openai_capacity" {
   description = "In thousands of tokens per minute."
 }
 
+variable "enable_research_environment" {
+  type        = bool
+  default     = false
+  description = "Configure the research analytics environment for the application."
+}
+
+variable "research_image_registry" {
+  type        = string
+  default     = "blindchargingapi.azurecr.io"
+  description = "The Docker image registry where the `research_image` is hosted."
+}
+
+variable "research_image" {
+  type        = string
+  default     = "blind-charging-research"
+  description = "The base tag (without the version) of the Docker image used to run the research server."
+}
+
+variable "research_image_version" {
+  type        = string
+  default     = "latest"
+  description = <<EOF
+The version of the Docker image used to run the research server.
+
+This version must exist in the repo specified in `var.research_image`.
+
+**WARNING** If the tag is `latest` (the default!), the image version may upgrade
+unexpectedly when the app containers restart. This is usually fine, but it's
+recommended to lock the version and increment it manually in case a new image
+contains incompatible changes.
+EOF
+}
+
 locals {
-  is_gov_cloud    = var.azure_env == "usgovernment"
-  description     = "Whether this configuration uses Azure Government Cloud."
-  api_image_tag   = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
-  openai_location = var.openai_location != null ? var.openai_location : var.location
+  is_gov_cloud       = var.azure_env == "usgovernment"
+  description        = "Whether this configuration uses Azure Government Cloud."
+  api_image_tag      = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
+  research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
+  openai_location    = var.openai_location != null ? var.openai_location : var.location
 }

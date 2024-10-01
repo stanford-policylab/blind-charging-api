@@ -124,7 +124,6 @@ resource "azurerm_application_gateway" "public" {
     http_listener_name         = local.https_listener_name
     backend_address_pool_name  = local.backend_address_pool_name
     backend_http_settings_name = local.backend_http_settings_name
-
   }
 
   probe {
