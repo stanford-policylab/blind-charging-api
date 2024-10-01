@@ -4,8 +4,8 @@ locals {
 }
 
 resource "azurerm_storage_account" "research" {
-  count                    = var.enable_research_environment ? 1 : 0
-  name                     = format("%s-data-sa", local.research_app_name)
+  count                    = var.enable_research_env ? 1 : 0
+  name                     = replace(format("%srbcdata", var.partner), "-", "")
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
@@ -14,14 +14,14 @@ resource "azurerm_storage_account" "research" {
 }
 
 resource "azurerm_storage_share" "research" {
-  count                = var.enable_research_environment ? 1 : 0
-  name                 = format("%s-data-share", local.research_app_name)
+  count                = var.enable_research_env ? 1 : 0
+  name                 = "rbcdata"
   storage_account_name = azurerm_storage_account.research[0].name
   quota                = 10 # Gigabytes
 }
 
 resource "azurerm_container_app_environment_storage" "research" {
-  count                        = var.enable_research_environment ? 1 : 0
+  count                        = var.enable_research_env ? 1 : 0
   name                         = format("%s-data-caes", local.research_app_name)
   container_app_environment_id = azurerm_container_app_environment.main.id
   account_name                 = azurerm_storage_account.research[0].name
@@ -31,7 +31,7 @@ resource "azurerm_container_app_environment_storage" "research" {
 }
 
 resource "azurerm_container_app" "research" {
-  count                        = var.enable_research_environment ? 1 : 0
+  count                        = var.enable_research_env ? 1 : 0
   name                         = local.research_app_name
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
@@ -84,7 +84,7 @@ resource "azurerm_container_app" "research" {
       name   = "rbc-research"
       image  = local.research_image_tag
       cpu    = 2.0
-      memory = "8Gi"
+      memory = "4Gi"
 
       liveness_probe {
         host             = "127.0.0.1"

@@ -191,7 +191,7 @@ variable "openai_capacity" {
   description = "In thousands of tokens per minute."
 }
 
-variable "enable_research_environment" {
+variable "enable_research_env" {
   type        = bool
   default     = false
   description = "Configure the research analytics environment for the application."
