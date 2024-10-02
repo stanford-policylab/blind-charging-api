@@ -191,10 +191,30 @@ variable "openai_capacity" {
   description = "In thousands of tokens per minute."
 }
 
+variable "host" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = "The host domain where the application is deployed (on the public internet; not relevant if app is not exposed)."
+}
+
 variable "enable_research_env" {
   type        = bool
   default     = false
   description = "Configure the research analytics environment for the application."
+}
+
+variable "expose_research_env" {
+  type        = bool
+  default     = false
+  description = "Expose the research environment to the public internet."
+}
+
+variable "research_password" {
+  type        = string
+  sensitive   = true
+  default     = "ResearchAdminPassword##"
+  description = "Password for the research environment."
 }
 
 variable "research_image_registry" {

@@ -52,6 +52,11 @@ resource "azurerm_container_app" "research" {
     value = var.registry_password
   }
 
+  secret {
+    name  = "research-password"
+    value = var.research_password
+  }
+
   registry {
     server               = var.research_image_registry
     username             = var.partner
@@ -86,9 +91,14 @@ resource "azurerm_container_app" "research" {
       cpu    = 2.0
       memory = "4Gi"
 
+      env {
+        name        = "PASSWORD"
+        secret_name = "research-password"
+      }
+
       liveness_probe {
         host             = "127.0.0.1"
-        path             = "/health-check"
+        path             = "/unsupported_browser.htm"
         port             = 8787
         transport        = "HTTP"
         initial_delay    = 5
