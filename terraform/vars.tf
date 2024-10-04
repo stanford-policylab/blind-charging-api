@@ -119,6 +119,27 @@ variable "ssl_cert" {
   }
 }
 
+variable "ssl_dns_provider" {
+  type        = string
+  default     = "manual"
+  description = <<EOF
+DNS provider to use for Let's Encrypt certificate registration.
+
+By default we use manual provision, where you need to check `challenge.log` and update your DNS records manually
+while running this script.
+
+You generally need to provide additional environment variables to make the provider set here work.
+EOF
+}
+
+variable "ssl_dns_provider_config" {
+  type        = map(string)
+  default     = {}
+  description = <<EOF
+Configuration for the DNS provider. See lego documentation for details for your provider.
+EOF
+}
+
 variable "app_auth" {
   type    = string
   default = "none"

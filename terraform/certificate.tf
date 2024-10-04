@@ -38,9 +38,11 @@ resource "pkcs12_from_pem" "app_gateway" {
 
 ### Let's Encrypt certificate ###
 # This certificate is useful for production environments.
-# Unfortunately, we can't fully support Let's Encrypt yet, since not all
-# DNS backends are supported. This means there's some manual action that
-# needs to be taken in order to set the TXT record for the domain.
+#
+# By default, you need to set the TXT record in your DNS provider manually.
+# See `challenge.log` when running the script to get the value to set.
+# You can also configure a DNS provider that supports automatic propagation;
+# see the `ssl_dns_provider` and `ssl_dns_provider_config` variables.
 resource "acme_registration" "app_gateway" {
   count = local.use_lets_encrypt_cert ? 1 : 0
 
@@ -55,10 +57,10 @@ resource "acme_certificate" "app_gateway" {
   common_name              = var.host
 
   dns_challenge {
-    provider = "exec"
-    config = {
+    provider = var.ssl_dns_provider == "manual" ? "exec" : var.ssl_dns_provider
+    config = var.ssl_dns_provider == "manual" ? {
       EXEC_PATH                = "${path.module}/backend/cert.sh"
       EXEC_PROPAGATION_TIMEOUT = "900" # 15 minutes
-    }
+    } : var.ssl_dns_provider_config
   }
 }
