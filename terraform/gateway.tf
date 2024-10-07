@@ -235,6 +235,14 @@ resource "azurerm_application_gateway" "public" {
           header_name  = "X-RStudio-Request"
           header_value = format("https://%s/research", var.host)
         }
+        request_header_configuration {
+          header_name  = "X-Forwarded-Host"
+          header_value = var.host
+        }
+        request_header_configuration {
+          header_name  = "X-Forwarded-Proto"
+          header_value = "https"
+        }
       }
     }
   }
