@@ -231,6 +231,10 @@ resource "azurerm_application_gateway" "public" {
         url {
           path = "{var_request_uri_1}"
         }
+        request_header_configuration {
+          header_name  = "X-RStudio-Request"
+          header_value = format("https://%s/research", var.host)
+        }
       }
     }
   }
