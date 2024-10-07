@@ -243,6 +243,10 @@ resource "azurerm_application_gateway" "public" {
           header_name  = "X-Forwarded-Proto"
           header_value = "https"
         }
+        request_header_configuration {
+          header_name  = "X-RStudio-Root-Path"
+          header_value = "/research"
+        }
       }
     }
   }
