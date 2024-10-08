@@ -1,6 +1,7 @@
 import base64
 
 import requests
+from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
@@ -15,7 +16,7 @@ logger = get_task_logger(__name__)
 class FetchTask(BaseModel):
     document: Document
 
-    def s(self):
+    def s(self) -> Signature:
         return fetch.s(self)
 
 

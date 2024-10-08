@@ -47,6 +47,8 @@ def primary_key() -> bytes:
 
 
 class Base(AsyncAttrs, DeclarativeBase):
+    id: Mapped[UUID]
+
     type_annotation_map = {
         UUID: BINARY(16),
         datetime: DateTime(timezone=True),

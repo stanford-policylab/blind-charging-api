@@ -1,6 +1,7 @@
 import base64
 
 from azure.storage.blob import BlobClient
+from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
@@ -15,7 +16,7 @@ logger = get_task_logger(__name__)
 class FormatTask(BaseModel):
     target_blob_url: str | None = None
 
-    def s(self):
+    def s(self) -> Signature:
         return format.s(self)
 
 
