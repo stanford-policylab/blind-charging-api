@@ -11,6 +11,7 @@ resource "azurerm_storage_account" "research" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   tags                     = var.tags
+  account_kind             = "FileStorage"
 }
 
 resource "azurerm_storage_share" "research" {
@@ -18,6 +19,7 @@ resource "azurerm_storage_share" "research" {
   name                 = "rbcdata"
   storage_account_name = azurerm_storage_account.research[0].name
   quota                = 10 # Gigabytes
+  enabled_protocol     = "NFS"
 }
 
 resource "azurerm_container_app_environment_storage" "research" {
