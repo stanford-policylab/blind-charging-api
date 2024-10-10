@@ -117,6 +117,10 @@ resource "azurerm_container_app" "research" {
 // for the SMB share to work properly.
 // https://github.com/hashicorp/terraform-provider-azurerm/issues/26131
 //
+// "noperm" is not actually valid in Azure, so we use `uid` and `gid`
+// instead and this will give `rstudio` user the permission to do most
+// things in this directory (unless they actually need to `chmod` or `chown`).
+//
 // Separately, azapi_update_resource only supports PUT, which hits an
 // error since it will try to merge the config with secrets (which it can't
 // find values for due to security reasons). azapi_resource_action is used
