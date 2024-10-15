@@ -3,9 +3,10 @@ from datetime import timedelta
 
 import jwt
 import pytest
+from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from app.server.db import Revocation
+from app.server.db import Client, Revocation
 
 PROTECTED_ROUTES = [
     ("POST", "/api/v1/exposure"),
@@ -99,6 +100,40 @@ async def test_authn_none(api: TestClient):
 
 
 ## CLIENT CREDENTIALS
+
+
+@pytest.mark.parametrize(
+    "authn_config",
+    [
+        """\
+method = 'client_credentials'
+secret = 'something'
+[authentication.store]
+engine = 'sqlite'
+path = "{db_path}"
+"""
+    ],
+    indirect=True,
+)
+async def test_authn_register_client(api: TestClient, config, authn_db):
+    async with authn_db.async_session() as sesh:
+        client = await config.authentication.driver.register_client(sesh, "test")
+        await sesh.commit()
+
+    assert isinstance(client.client_id, str)
+    assert len(client.client_id) == 32
+    assert isinstance(client.client_secret, str)
+    assert len(client.client_secret) == 43
+
+    # Now look up in the database to make sure it's there,
+    # and that the secret is hashed.
+    async with authn_db.async_session() as sesh:
+        db_client = await sesh.get(Client, client.client_id)
+        assert db_client is not None
+        assert db_client.name == "test"
+        assert db_client.secret_hash != client.client_secret
+        ph = PasswordHasher()
+        assert ph.verify(db_client.secret_hash, client.client_secret)
 
 
 @pytest.mark.parametrize(
