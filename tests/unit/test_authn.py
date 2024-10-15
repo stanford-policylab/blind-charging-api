@@ -200,7 +200,7 @@ async def test_authn_client_credentials_valid(api: TestClient, config, authn_db,
             raise
 
     # Expiration
-    api.app.state.now = lambda: now() + timedelta(days=2)
+    api.app.state.now = lambda: now() + timedelta(days=2)  # type: ignore
 
     for method, route in PROTECTED_ROUTES:
         response = api.request(
@@ -327,7 +327,7 @@ async def test_authn_client_credentials_revoke_cleanup(
         assert await Revocation.check(sesh, token_id) is True
         await sesh.commit()
 
-    api.app.state.now = lambda: now() + timedelta(seconds=2 * 86400)
+    api.app.state.now = lambda: now() + timedelta(seconds=2 * 86400)  # type: ignore
     new_token_response = api.request(
         "POST",
         "/api/v1/oauth2/token",
