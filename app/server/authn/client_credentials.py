@@ -9,7 +9,7 @@ from fastapi import Request
 from glowplug import SqliteSettings
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid_utils import uuid7
+from uuid_utils import UUID, uuid7
 
 from ..db import Client, RdbmsConfig, Revocation
 from ..time import NowFn, utcnow
@@ -255,7 +255,7 @@ class ClientCredentialsAuthnDriver(BaseAuthnDriver):
         Raises:
             NotAuthenticated: If the client is not found or the secret is invalid
         """
-        client = await Client.get_by_id(tx, bytes.fromhex(client_id))
+        client = await Client.get_by_id(tx, UUID(client_id))
         if not client:
             raise NotAuthenticated("Invalid client")
 
