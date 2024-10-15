@@ -42,11 +42,17 @@ Disqualifier = Enum(
 
 
 class UUID7Type(TypeDecorator):
+    """UUIDv7 type for SQLAlchemy.
+
+    Stores UUIDs as 16-byte binary values.
+    """
+
     impl = BINARY(16)
 
     cache_ok = True
 
     def process_bind_param(self, value: Any | None, dialect: Dialect) -> bytes | None:
+        """Convert a UUID to bytes."""
         if value is None:
             return None
         if isinstance(value, str):
@@ -58,6 +64,7 @@ class UUID7Type(TypeDecorator):
         return value
 
     def process_result_value(self, value: Any | None, dialect: Dialect) -> UUID | None:
+        """Convert bytes to a UUID."""
         if value is None:
             return None
         if isinstance(value, str):
