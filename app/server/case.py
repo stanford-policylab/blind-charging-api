@@ -185,7 +185,9 @@ class CaseStore:
         """
         masks = await self.store.hgetall(self.key("mask"))
         return [
-            MaskedSubject(subjectId=str(k), alias=str(v) if v else "")
+            MaskedSubject(
+                subjectId=k.decode("utf-8"), alias=v.decode("utf-8") if v else ""
+            )
             for k, v in masks.items()
         ]
 
