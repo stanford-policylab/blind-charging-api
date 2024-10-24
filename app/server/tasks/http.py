@@ -34,7 +34,21 @@ class HealthCheckResponse(TypedDict):
 
 @app.get("/health")
 def health() -> JSONResponse:
-    """Health check endpoint."""
+    """Health check endpoint.
+
+    Returns the health status of the workers.
+
+    There ought to be at least one healthy worker on the local machine
+    if this server is running. So if this does not hold, we return a 500 error.
+
+    Note that as long as there is one healthy worker locally, the server is
+    considered healthy, even if there are some unhealthy ones.
+
+    The full result can be inspected for remediation if necessary.
+
+    Returns:
+        JSONResponse: The `HealthCheckResponse` with a status of either 500 or 200.
+    """
     health = queue.control.ping()
     local = socket.gethostname()
     address = f"@{local}"
@@ -88,9 +102,9 @@ class WorkerRawHealthCheckResponse(TypedDict):
     workers: list[dict[str, RawWorkerHealth]]
 
 
-@app.get("/health/all")
-def health_all_workers() -> dict:
-    """Inspect all workers."""
+@app.get("/health/raw")
+def health_raw() -> dict:
+    """Call `celery inspect ping` and return the result."""
     return {"workers": queue.control.ping()}
 
 
