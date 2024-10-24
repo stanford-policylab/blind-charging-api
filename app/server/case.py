@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
@@ -142,6 +143,34 @@ class CaseStore:
     @property
     def inited(self) -> bool:
         return bool(self.jurisdiction_id and self.case_id)
+
+    @classmethod
+    async def save_blob(cls, store: StoreSession, blob: bytes) -> str:
+        """Save a blob of data in the store.
+
+        Args:
+            store (StoreSession): The store.
+            blob (bytes): The blob of data.
+
+        Returns:
+            str: The key under which the data was saved.
+        """
+        key = hashlib.sha256(blob).hexdigest()
+        await store.set(key, blob)
+        return key
+
+    @classmethod
+    async def get_blob(cls, store: StoreSession, key: str) -> bytes | None:
+        """Get a blob of data from the store.
+
+        Args:
+            store (StoreSession): The store.
+            key (str): The key under which the data was saved.
+
+        Returns:
+            bytes | None: The blob of data if it exists.
+        """
+        return await store.get(key)
 
     async def init(
         self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S
