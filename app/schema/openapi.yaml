@@ -512,7 +512,7 @@ components:
           enum:
             - QUEUED
             - PROCESSING
-        status_detail:
+        statusDetail:
           type: string
 
     RedactionResultCompleted:
