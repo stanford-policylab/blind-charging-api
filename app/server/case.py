@@ -157,6 +157,8 @@ class CaseStore:
         """
         key = hashlib.sha256(blob).hexdigest()
         await store.set(key, blob)
+        t = await store.time()
+        await store.expire_at(key, t + FOUR_HOURS_S)
         return key
 
     @classmethod
@@ -229,6 +231,7 @@ class CaseStore:
         """
         mapping_key = self.key("mask")
         await self.store.hsetmapping(mapping_key, {subject_id: mask})
+        await self.store.expire_at(mapping_key, self.expires_at)
 
     @ensure_init
     async def save_roles(
