@@ -4,7 +4,7 @@ resource "azurerm_container_app_environment" "main" {
   location                           = azurerm_resource_group.main.location
   log_analytics_workspace_id         = azurerm_log_analytics_workspace.main.id
   tags                               = var.tags
-  infrastructure_resource_group_name = "rbc-app-env-rg"
+  infrastructure_resource_group_name = var.app_infra_resource_group_name
   infrastructure_subnet_id           = azurerm_subnet.app.id
   internal_load_balancer_enabled     = true
 
