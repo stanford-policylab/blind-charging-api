@@ -1,5 +1,5 @@
 resource "azurerm_container_app_environment" "main" {
-  name                               = locals.container_app_env_name
+  name                               = local.container_app_env_name
   resource_group_name                = azurerm_resource_group.main.name
   location                           = azurerm_resource_group.main.location
   log_analytics_workspace_id         = azurerm_log_analytics_workspace.main.id
