@@ -1,4 +1,5 @@
 locals {
+  create_app_gateway                  = var.expose_app_to_private_network || var.expose_app_to_public_internet
   frontend_ip_config_name             = format("%s-rbc-app-gw-feip", var.partner)
   frontend_https_port_name            = format("%s-rbc-app-gw-feport-https", var.partner)
   frontend_http_port_name             = format("%s-rbc-app-gw-feport-http", var.partner)
@@ -18,7 +19,7 @@ locals {
 }
 
 resource "azurerm_application_gateway" "public" {
-  count               = var.expose_app ? 1 : 0
+  count               = local.create_app_gateway ? 1 : 0
   name                = local.app_gateway_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
@@ -59,13 +60,9 @@ resource "azurerm_application_gateway" "public" {
     name                            = local.frontend_ip_config_name
     public_ip_address_id            = azurerm_public_ip.gateway[0].id
     private_link_configuration_name = local.private_link_configuration_name
-  }
-
-  frontend_ip_configuration {
-    name                          = format("%s-rbc-app-gw-feip-priv", var.partner)
-    private_ip_address_allocation = "Static"
-    private_ip_address            = var.gateway_private_ip_address
-    subnet_id                     = azurerm_subnet.gateway.id
+    private_ip_address_allocation   = "Static"
+    private_ip_address              = var.gateway_private_ip_address
+    subnet_id                       = azurerm_subnet.gateway.id
   }
 
   // Set up an http -> https redirect
@@ -99,9 +96,12 @@ resource "azurerm_application_gateway" "public" {
   }
 
   redirect_configuration {
-    name                 = local.research_add_slash_redirect_name
-    redirect_type        = "Permanent"
-    target_url           = "https://${var.host}/research/"
+    name          = local.research_add_slash_redirect_name
+    redirect_type = "Permanent"
+    # NOTE: the `var.host` needs to be supplied in vars if the research environment is to be reachable.
+    # If it's not defined, we avoid a cryptic error here by putting a placeholder value.
+    # (Of course, the rule will not do anything useful in that case.)
+    target_url           = "https://${coalesce(var.host, "localhost")}/research/"
     include_path         = false
     include_query_string = true
   }
