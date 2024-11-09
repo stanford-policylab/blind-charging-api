@@ -168,7 +168,7 @@ resource "azurerm_application_gateway" "public" {
   }
 
   request_routing_rule {
-    priority           = 1
+    priority           = 3
     name               = format("%s-rbc-app-gw-rr-priv", var.partner)
     rule_type          = "PathBasedRouting"
     url_path_map_name  = local.url_path_map_name
