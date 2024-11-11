@@ -839,6 +839,11 @@ components:
             type: string
         protocol:
           $ref: "#/components/schemas/ReviewProtocol"
+        extra:
+          type: string
+          description: |
+            Additional information about the exposure event.
+            This field is optional and can be used to provide additional context.
 
     Review:
       type: object
