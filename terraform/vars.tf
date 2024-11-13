@@ -327,23 +327,32 @@ EOF
 }
 
 variable "firewall_allowed_domains" {
-  type = list(string)
-  default = [
-    "blindchargingapi.eastus.data.azurecr.io",
-    "blindchargingapi.azurecr.io",
-    "azurecr.io",
-  ]
+  type        = list(string)
+  default     = []
   description = <<EOF
 List of domains to allow outbound traffic to through the firewall.
+
+Note that we currently require access to our Azure Container Registry for the API image.
+We will automatically apply rules that allow access to pull from this registry.
+
+If you want to allow additional domains (e.g., blob storage), add them to this list.
+
+This is required if you want us to write redacted documents to blob storage.
 EOF
 }
 
 locals {
-  is_gov_cloud            = var.azure_env == "usgovernment"
-  description             = "Whether this configuration uses Azure Government Cloud."
-  api_image_tag           = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
-  research_image_tag      = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
-  openai_location         = var.openai_location != null ? var.openai_location : var.location
-  uses_tf_backend         = var.tfstate_resource_group != null
-  firewall_allow_outbound = length(var.firewall_allowed_domains) > 0
+  is_gov_cloud       = var.azure_env == "usgovernment"
+  description        = "Whether this configuration uses Azure Government Cloud."
+  api_image_tag      = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
+  research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
+  openai_location    = var.openai_location != null ? var.openai_location : var.location
+  uses_tf_backend    = var.tfstate_resource_group != null
+  firewall_required_domains = [
+    "blindchargingapi.eastus.data.azurecr.io",
+    "blindchargingapi.azurecr.io",
+    "azurecr.io",
+  ]
+  firewall_allowed_domains = concat(var.firewall_allowed_domains, local.firewall_required_domains)
+  firewall_allow_outbound  = length(local.firewall_allowed_domains) > 0
 }

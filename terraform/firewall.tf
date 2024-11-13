@@ -26,7 +26,7 @@ resource "azurerm_firewall_network_rule_collection" "main" {
   rule {
     name              = "Allow outbound access through firewall"
     source_addresses  = var.app_subnet_address_space
-    destination_fqdns = var.firewall_allowed_domains
+    destination_fqdns = local.firewall_allowed_domains
     destination_ports = ["443", "22"]
     protocols         = ["TCP"]
   }
