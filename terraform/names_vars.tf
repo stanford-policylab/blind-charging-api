@@ -194,12 +194,6 @@ variable "research_storage_share_name" {
   description = "Name of the research environment storage share."
 }
 
-variable "firewall_subnet_name" {
-  type        = string
-  default     = "firewall"
-  description = "Name of the firewall subnet."
-}
-
 variable "firewall_name" {
   type        = string
   default     = ""

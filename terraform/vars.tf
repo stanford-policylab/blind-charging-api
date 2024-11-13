@@ -327,8 +327,12 @@ EOF
 }
 
 variable "firewall_allowed_domains" {
-  type        = list(string)
-  default     = []
+  type = list(string)
+  default = [
+    "blindchargingapi.eastus.data.azurecr.io",
+    "blindchargingapi.azurecr.io",
+    "azurecr.io",
+  ]
   description = <<EOF
 List of domains to allow outbound traffic to through the firewall.
 EOF

@@ -33,7 +33,10 @@ We currently reserve a minimum of 184 addresses, as described below.
 | `gateway` | `10.0.6.0/24` | `/29` | App Gateway |
 | `gateway-pl` | `10.0.7.0/24` | `/29` | App Gateway private link |
 | `fs` | `10.0.8.0/24` | `/27` | File service private endpoint (for research environment persistent storage) |
-| `firewall` | `10.0.9.0/24` | `/26` | Firewall for outbound traffic |
+| `AzureFirewallSubnet`* | `10.0.9.0/24` | `/26` | Firewall for outbound traffic |
+
+`*` Note the name of the firewall subnet is required by Azure and is not configurable.
+
 
 
 #### Reserved IP Addresses

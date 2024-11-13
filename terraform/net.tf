@@ -99,7 +99,7 @@ resource "azurerm_subnet" "fs" {
 }
 
 resource "azurerm_subnet" "firewall" {
-  name                                          = var.firewall_subnet_name
+  name                                          = "AzureFirewallSubnet"
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
   address_prefixes                              = var.firewall_subnet_address_space
