@@ -318,11 +318,28 @@ contains incompatible changes.
 EOF
 }
 
+variable "dns_servers" {
+  type        = list(string)
+  default     = ["1.1.1.1"] # Cloudflare
+  description = <<EOF
+List of DNS servers to use for traffic filtering in the firewall.
+EOF
+}
+
+variable "firewall_allowed_domains" {
+  type        = list(string)
+  default     = []
+  description = <<EOF
+List of domains to allow outbound traffic to through the firewall.
+EOF
+}
+
 locals {
-  is_gov_cloud       = var.azure_env == "usgovernment"
-  description        = "Whether this configuration uses Azure Government Cloud."
-  api_image_tag      = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
-  research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
-  openai_location    = var.openai_location != null ? var.openai_location : var.location
-  uses_tf_backend    = var.tfstate_resource_group != null
+  is_gov_cloud            = var.azure_env == "usgovernment"
+  description             = "Whether this configuration uses Azure Government Cloud."
+  api_image_tag           = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
+  research_image_tag      = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
+  openai_location         = var.openai_location != null ? var.openai_location : var.location
+  uses_tf_backend         = var.tfstate_resource_group != null
+  firewall_allow_outbound = length(var.firewall_allowed_domains) > 0
 }
