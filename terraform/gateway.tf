@@ -131,7 +131,7 @@ resource "azurerm_application_gateway" "public" {
   http_listener {
     name                           = local.private_http_listener_name
     frontend_ip_configuration_name = local.private_frontend_ip_config_name
-    frontend_port_name             = local.has_cert ? local.frontend_http_port_name : local.frontend_https_port_name
+    frontend_port_name             = local.has_cert ? local.frontend_https_port_name : local.frontend_http_port_name
     protocol                       = local.has_cert ? "Https" : "Http"
     ssl_certificate_name           = local.has_cert ? local.ssl_cert_name : null
   }
