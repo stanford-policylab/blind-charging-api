@@ -4,7 +4,12 @@ from unittest.mock import patch
 from fakeredis import FakeRedis
 from pydantic import AnyUrl
 
-from app.server.generated.models import Document, DocumentContent, DocumentLink
+from app.server.generated.models import (
+    DocumentContent,
+    DocumentLink,
+    OutputDocument,
+    OutputFormat,
+)
 from app.server.tasks import (
     FormatTask,
     FormatTaskResult,
@@ -22,12 +27,13 @@ def test_format_no_blob(fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(redact_result, FormatTask()).apply()
     raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
-    doc = Document.model_validate_json(cast(bytes, raw_doc))
-    assert doc == Document(
+    doc = OutputDocument.model_validate_json(cast(bytes, raw_doc))
+    assert doc == OutputDocument(
         root=DocumentContent(
             documentId="doc1",
             attachmentType="BASE64",
@@ -52,6 +58,7 @@ def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     # Some fake SAS URL
@@ -60,8 +67,8 @@ def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
     result = format.s(redact_result, FormatTask(target_blob_url=blob_sas_url)).apply()
 
     raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
-    doc = Document.model_validate_json(cast(bytes, raw_doc))
-    assert doc == Document(
+    doc = OutputDocument.model_validate_json(cast(bytes, raw_doc))
+    assert doc == OutputDocument(
         root=DocumentLink(
             documentId="doc1",
             attachmentType="LINK",
@@ -87,6 +94,7 @@ def test_format_with_invalid_blob_url(blob_upload, fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(
@@ -128,6 +136,7 @@ def test_format_errors():
                 exception="Exception",
             )
         ],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(redact_result, FormatTask()).apply()

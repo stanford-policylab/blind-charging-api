@@ -16,6 +16,7 @@ from ..generated.models import (
     DocumentJSON,
     DocumentLink,
     OutputDocument,
+    OutputFormat,
 )
 from .queue import ProcessingError, queue
 from .redact import RedactionTaskResult
@@ -140,7 +141,7 @@ def format_document(
         content = get_document_sync(redaction.file_storage_id)
         if not content:
             raise ValueError("No redacted content")
-        if redaction.renderer:
+        if redaction.renderer == OutputFormat.JSON:
             json_content = json.loads(content)
             return OutputDocument(
                 root=DocumentJSON(
