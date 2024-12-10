@@ -209,7 +209,7 @@ async def get_redaction_status(
     redaction_results = list[RedactionResult]()
 
     for doc_id, task_ids in tasks.items():
-        result = await _get_doc_results(
+        result = await _get_doc_result(
             store, jurisdiction_id, case_id, doc_id, task_ids, masked_subjects
         )
         redaction_results.append(result)
@@ -221,7 +221,7 @@ async def get_redaction_status(
     )
 
 
-async def _get_doc_results(
+async def _get_doc_result(
     store: CaseStore,
     jurisdiction_id: str,
     case_id: str,
