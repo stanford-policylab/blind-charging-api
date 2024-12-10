@@ -86,8 +86,9 @@ def finalize(
             # Unclear why we would get here, since we've verified that
             # there are more objects to redact
             raise RuntimeError("Failed to create redaction task")
+
         next_task = new_chain.apply_async()
-        print("CREATED NEW TASK", next_task)
+
         # Save the new task to the store for tracking
         save_doc_task_sync(
             params.jurisdiction_id,
@@ -130,6 +131,7 @@ def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget 
                 await cs.init(jurisdiction_id, case_id)
                 doc_tasks = await cs.get_doc_tasks()
                 logging.debug(f"Found {len(doc_tasks)} existing task(s).")
+
                 while True:
                     next_object = await cs.pop_object()
                     if not next_object:
@@ -137,15 +139,14 @@ def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget 
                         return None
                     # Validate that the next object needs to be redacted.
                     existing_tasks = doc_tasks.get(next_object.document.root.documentId)
-                    print("EXISTING TASKS", existing_tasks)
                     if not existing_tasks:
                         logging.debug(
                             f"Found next object for {jurisdiction_id}:{case_id}: "
                             f"{next_object.document.root.documentId}"
                         )
                         return next_object
+
                     summary = summarize_state([get_result(t) for t in existing_tasks])
-                    print("summary", summary)
                     if summary.simple_state == "FAILURE":
                         logging.debug(
                             f"Found failed task for {jurisdiction_id}:{case_id}: "
