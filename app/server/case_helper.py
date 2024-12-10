@@ -62,7 +62,7 @@ def save_retry_state_sync(
             "exception": str(exc),
             "attempts": self.request.retries + 1,
             "max_attempts": self.max_retries,
-            "last_attempt": self.expires,
+            "last_retry": self.request.eta,
         }
     )
 
