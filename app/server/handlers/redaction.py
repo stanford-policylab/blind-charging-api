@@ -229,6 +229,7 @@ async def _get_doc_result(
     task_ids: list[str],
     masked_subjects: list[MaskedSubject],
 ) -> RedactionResult:
+    """Get the redaction result for a document."""
     # Get the status of each step in the chain from celery.
     task_results = [get_result(task_id) for task_id in task_ids]
 
