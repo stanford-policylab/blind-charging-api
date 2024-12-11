@@ -1,6 +1,7 @@
 import asyncio
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from billiard.einfo import ExceptionInfo
 from celery.result import AsyncResult
@@ -56,19 +57,21 @@ def save_retry_state_sync(
     einfo: ExceptionInfo,
 ) -> None:
     """Store the retry state in the results store."""
-    data = json.dumps(
-        {
-            "name": self.name,
-            "exception": str(exc),
-            "attempts": self.request.retries + 1,
-            "max_attempts": self.max_retries,
-            "last_retry": self.request.eta,
-        }
-    )
 
     async def _store():
         async with config.queue.store.driver() as store:
             async with store.tx() as tx:
+                ts = await tx.time()
+                dt = datetime.fromtimestamp(ts, tz=UTC)
+                data = json.dumps(
+                    {
+                        "name": self.name,
+                        "exception": str(exc),
+                        "attempts": self.request.retries + 1,
+                        "max_attempts": self.max_retries + 1,
+                        "last_failure": dt.isoformat(),
+                    }
+                )
                 await CaseStore.save_key(tx, f"{task_id}:retry", data.encode("utf-8"))
 
     asyncio.run(_store())
