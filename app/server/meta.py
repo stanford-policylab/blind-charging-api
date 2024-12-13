@@ -174,39 +174,7 @@ def inspect_api(startup: datetime) -> ApiMeta:
     )
 
 
-@meta_router.get("/status")
-async def status(request: Request, format: str | None = None):
-    health = inspect_api(request.app.state.startup_time)
-    overall_healthy = health.api.alive and health.workers.status == "ok"
-    status_code = 200 if overall_healthy else 500
-    health_dict = asdict(health)
-    # inspect `accept` header to determine default response format
-    accept = request.headers.get("accept", "")
-    if format is None:
-        if "text/html" in accept:
-            format = "html"
-        elif "application/json" in accept:
-            format = "json"
-
-    if format == "json":
-        return JSONResponse(content=health_dict, status_code=status_code)
-    elif format == "html":
-        content = f"""
-    <html>
-    <body>
-    <pre>{json.dumps(health_dict, indent=2)}</pre>
-    </body>
-    </html>
-    """
-        return HTMLResponse(content=content, status_code=status_code)
-    else:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid format `{format}`. Use `json` or `html`."
-        )
-
-
-@meta_router.get("/", response_class=HTMLResponse)
-async def root():
+def _format_meta_html(content: str) -> str:
     return f"""
     <html>
         <head>
@@ -274,7 +242,54 @@ async def root():
             <header>
             <pre>{api_logo}</pre>
             </header>
-            <main>
+            <main>{content}</main>
+            <footer>
+                <p>Need help? Email us at
+                <a href="mailto:blind_charging@hks.harvard.edu">
+                blind_charging@hks.harvard.edu</a>.
+                </p>
+                <p>© 2024 Computational Policy Lab, Harvard Kennedy School</p>
+                <div><pre class="cpl">{cpl_logo}</pre></div>
+            </footer>
+        </body>
+    </html>
+    """
+
+
+@meta_router.get("/status")
+async def status(request: Request, format: str | None = None):
+    health = inspect_api(request.app.state.startup_time)
+    overall_healthy = health.api.alive and health.workers.status == "ok"
+    status_code = 200 if overall_healthy else 500
+    health_dict = asdict(health)
+    # inspect `accept` header to determine default response format
+    accept = request.headers.get("accept", "")
+    if format is None:
+        if "text/html" in accept:
+            format = "html"
+        elif "application/json" in accept:
+            format = "json"
+
+    if format == "json":
+        return JSONResponse(content=health_dict, status_code=status_code)
+    elif format == "html":
+        content = f"""
+    <html>
+    <body>
+    <pre>{json.dumps(health_dict, indent=2)}</pre>
+    </body>
+    </html>
+    """
+        return HTMLResponse(content=content, status_code=status_code)
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid format `{format}`. Use `json` or `html`."
+        )
+
+
+@meta_router.get("/", response_class=HTMLResponse)
+async def root():
+    return _format_meta_html("""
             <p>This server hosts the
                 <a href="https://policylab.hks.harvard.edu/"
                     rel="noopener noreferrer"
@@ -305,16 +320,4 @@ async def root():
                 <a href="/status"
                     rel="noopener noreferrer">status page</a>
                 will give you more details about the current API status.</li>
-            </ul>
-            </main>
-            <footer>
-                <p>Need help? Email us at
-                <a href="mailto:blind_charging@hks.harvard.edu">
-                blind_charging@hks.harvard.edu</a>.
-                </p>
-                <p>© 2024 Computational Policy Lab, Harvard Kennedy School</p>
-                <div><pre class="cpl">{cpl_logo}</pre></div>
-            </footer>
-        </body>
-    </html>
-    """
+            </ul>""")
