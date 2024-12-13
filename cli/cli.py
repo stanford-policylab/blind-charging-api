@@ -8,6 +8,8 @@ import typer
 from fastapi_cli.cli import dev as _dev
 from fastapi_cli.cli import run
 
+from app.logo import cli_logo
+
 from .provision import init_provision_cli
 
 _APP_ROOT = Path(__file__).parent.parent
@@ -162,14 +164,9 @@ init_provision_cli(_cli)
 
 
 def cli():
-    print("""\
+    print(f"""\
 
-██████╗ ██████╗  ██████╗               ██████╗██╗     ██╗
-██╔══██╗██╔══██╗██╔════╝              ██╔════╝██║     ██║
-██████╔╝██████╔╝██║         █████╗    ██║     ██║     ██║
-██╔══██╗██╔══██╗██║         ╚════╝    ██║     ██║     ██║
-██║  ██║██████╔╝╚██████╗              ╚██████╗███████╗██║
-╚═╝  ╚═╝╚═════╝  ╚═════╝               ╚═════╝╚══════╝╚═╝
+{cli_logo}
 
 """)
     _cli()
