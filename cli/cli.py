@@ -114,10 +114,13 @@ def worker(
 
     This command also starts an HTTP liveness probe on port 8001.
     """
+    import socket
+
     from app.server.tasks import get_liveness_app, queue
 
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
-        queue.Worker(task_events=monitor).start()
+        name = f"w{liveness_port}@{socket.gethostname()}"
+        queue.Worker(task_events=monitor, hostname=name).start()
 
 
 @_cli.command()
