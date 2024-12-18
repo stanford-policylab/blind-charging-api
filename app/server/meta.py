@@ -668,3 +668,105 @@ async def root():
                     rel="noopener noreferrer">status page</a>
                 will give you more details about the current API status.</li>
             </ul>""")
+
+
+@meta_router.get("/config", response_class=HTMLResponse)
+async def edit_config():
+    auth = """return "";"""
+    if config.authentication.method == "client_credentials":
+        auth = """
+            if (!window._client_id) {
+                window._client_id = window.prompt("Enter your client ID:");
+            }
+            if (!window._client_secret) {
+                window._client_secret = window.prompt("Enter your client secret:");
+            }
+            const res = await fetch("/api/v1/oauth2/token", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    grant_type: "client_credentials",
+                    client_id: window._client_id,
+                    client_secret: window._client_secret,
+                }),
+            });
+            const data = await res.json();
+            if (!data.access_token) {
+                throw new Error(JSON.stringify(data));
+            }
+            return data.access_token;
+        """
+    elif config.authentication.method == "preshared":
+        auth = """
+            if (!window._preshared) {
+                window._preshared = window.prompt("Enter your token:");
+            }
+            return window._preshared;
+        """
+    return _format_meta_html(f"""
+        <script type="text/javascript">
+            async function getToken() {{
+                {auth}
+            }}
+
+            async function callApi(route, method, data) {{
+                const token = await getToken();
+                const res = await fetch(route, {{
+                    method: method,
+                    headers: {{
+                        "Content-Type": data ? "application/json" : undefined,
+                        "Authorization": token ? `Bearer ${{token}}` : undefined,
+                    }},
+                    body: data ? JSON.stringify(data) : undefined,
+                }});
+                if (res.status >= 300) {{
+                    throw new Error(await res.text());
+                }}
+                return res.json();
+            }}
+
+            async function loadLatestConfig() {{
+                const config = await callApi("/api/v1/config", "GET");
+                if (!config.hasOwnProperty("blob")) {{
+                    document.getElementById("warn").innerText = JSON.stringify(config);
+                }}
+                document.getElementById("config").value = (config.blob || "");
+                window._current = config;
+            }}
+
+            window.onload = async function() {{
+                try {{
+                    await loadLatestConfig();
+                }} catch (e) {{
+                    document.getElementById("warn").innerText = e.toString();
+                }}
+            }};
+
+            async function saveConfig() {{
+                const config = document.getElementById("config").value;
+                try {{
+                    await callApi("/api/v1/config", "POST", {{
+                        blob: document.getElementById("config").value,
+                        parent: window._current ? window._current.version : undefined,
+                        active: true,
+                    }})
+                    document.getElementById("warn").innerText = "Saved!";
+                    await loadLatestConfig();
+                }} catch (e) {{
+                    document.getElementById("warn").innerText = e.toString();
+                }}
+            }}
+        </script>
+        <h2>API Configuration</h2>
+        <form>
+            <div id="warn" style="color: red;"></div>
+            <div>
+                <textarea id="config" name="config" rows="30" cols="80"></textarea>
+            </div>
+            <div>
+                <button type="button" onclick="saveConfig()">Save</button>
+            </div>
+        </form>
+    """)

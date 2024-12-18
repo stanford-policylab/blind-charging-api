@@ -101,6 +101,7 @@ class ExperimentsConfig(BaseModel):
     enabled: bool = False
     automigrate: bool = False
     store: RdbmsConfig = SqliteSettings(engine="sqlite")
+    config_reload_interval: float = 60.0
 
 
 class Config(BaseSettings):

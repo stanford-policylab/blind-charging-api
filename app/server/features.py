@@ -129,6 +129,7 @@ def init_gater(trace: bool = False) -> Alligater:
         logger=feature_logger,
         yaml=_load_config_from_db,
         sticky=_get_assignment,
+        reload_interval=config.experiments.config_reload_interval,
         features=[
             Feature(
                 "ft_blind_review",
