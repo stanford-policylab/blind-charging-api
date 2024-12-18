@@ -38,7 +38,7 @@ debug = true
 
 [experiments]
 enabled = true
-automigrate = true
+automigrate = false
 
 [experiments.store]
 engine = "sqlite"
