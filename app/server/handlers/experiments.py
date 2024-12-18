@@ -3,11 +3,12 @@ import json
 import alligater
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import desc, select, update
 from uuid_utils import UUID
 
 from ..config import config
 from ..db import (
+    Client,
     Decision,
     Disqualifier,
     Exposure,
@@ -232,8 +233,25 @@ def format_review_decision(decision: ReviewDecision) -> OutcomeDecision:
 
 async def get_all_configs(request: Request) -> ConfigsGetResponse:
     """List all the randomization configs."""
-    configs = await request.state.db.execute(select(Gater))
-    return ConfigsGetResponse(configs=configs)
+    configs = await request.state.db.execute(
+        select(Gater).order_by(desc(Gater.created_at))
+    )
+    return ConfigsGetResponse(
+        configs=[
+            ExperimentConfig(
+                version=str(ck.id),
+                blob=ck.blob,
+                active=ck.active,
+                createdAt=ck.created_at,
+                updatedAt=ck.updated_at,
+                parent=str(ck.parent),
+                name=ck.name,
+                description=ck.description,
+                author=ck.author,
+            )
+            for ck in configs.scalars()
+        ]
+    )
 
 
 async def get_config(request: Request, version: str) -> ExperimentConfig:
@@ -288,14 +306,23 @@ async def update_config(request: Request, body: NewExperimentConfig) -> None:
             update(Gater).where(Gater.active).values(active=False)
         )
 
-    print(request.state.authn_data)
+    # Get author if available
+    author: str | None = None
+    try:
+        authn = request.state.authn_data
+        client_id = authn.get("sub")
+        client = await Client.get_by_id(request.state.db, UUID(client_id))
+        if client:
+            author = client.name
+    except Exception:
+        pass
 
     new_config = Gater(
         parent=UUID(body.parent) if body.parent else None,
         blob=body.blob,
         name=body.name,
         description=body.description,
-        author=None,  # TODO - pull from token
+        author=author,
         active=body.active,
     )
     request.state.db.add(new_config)
