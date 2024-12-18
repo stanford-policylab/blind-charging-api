@@ -107,6 +107,20 @@ class Base(AsyncAttrs, DeclarativeBase):
         return result.scalar_one_or_none()
 
 
+class Gater(Base):
+    __tablename__ = "gater"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    parent: Mapped[UUID] = mapped_column(ForeignKey("gater.id"), nullable=True)
+    name: Mapped[str_256] = mapped_column(nullable=True)
+    description: Mapped[text] = mapped_column(nullable=True)
+    blob: Mapped[text] = mapped_column()
+    author: Mapped[str_256] = mapped_column(nullable=True)
+    active: Mapped[bool] = mapped_column(default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
 class Assignment(Base):
     __tablename__ = "assignment"
     __table_args__ = (UniqueConstraint("entity_type", "entity_id", "feature"),)
