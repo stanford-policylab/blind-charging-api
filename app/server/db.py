@@ -5,6 +5,7 @@ from typing import Any, Optional, Type, TypeVar, Union
 
 from glowplug import DbDriver, MsSqlSettings, SqliteSettings
 from sqlalchemy import Dialect, ForeignKey, delete, select
+from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
@@ -280,3 +281,14 @@ async def init_db(driver: DbDriver, drop_first: bool = False) -> None:
     else:
         logger.info("Creating database tables")
     await driver.init(Base, drop_first=drop_first)
+
+
+def clear_invalid_revision(driver: DbDriver) -> None:
+    """Clear the invalid revision from the database.
+
+    Args:
+        driver (DbDriver): The database driver.
+    """
+    with driver.sync_session() as s:
+        s.execute(sql_text("DELETE FROM alembic_version"))
+        s.commit()

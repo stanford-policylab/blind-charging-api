@@ -1,5 +1,5 @@
 import logging
-from typing import Protocol, Tuple
+from typing import Protocol
 
 from alligater import (
     Alligater,
@@ -11,6 +11,7 @@ from alligater import (
     Rollout,
     Variant,
 )
+from alligater.feature import ExistingAssignment
 from crocodsl import parse
 
 from .config import config
@@ -24,7 +25,7 @@ class AnyEntity(Protocol):
     def id(self) -> str: ...
 
 
-def _get_assignment(feature: Feature, entity: AnyEntity) -> Tuple[str, str]:
+def _get_assignment(feature: Feature, entity: AnyEntity) -> ExistingAssignment:
     """Fetch an assignment from the database.
 
     Args:
@@ -32,7 +33,7 @@ def _get_assignment(feature: Feature, entity: AnyEntity) -> Tuple[str, str]:
         entity (Any): The entity to fetch.
 
     Returns:
-        Tuple[str, str]: The feature and variant names.
+        Tuple[str, str, datetime]: The feature and variant names.
     """
     session = config.experiments.store.driver.sync_session
     logger.debug("Reading alligater log from database")
@@ -54,7 +55,7 @@ def _get_assignment(feature: Feature, entity: AnyEntity) -> Tuple[str, str]:
                     f"Found assignment for {entity}: "
                     f"{assignment.variant} -> {assignment.value}"
                 )
-                return assignment.variant, assignment.value
+                return assignment.variant, assignment.value, assignment.ts
         except Exception as e:
             logger.error(f"Failed to fetch assignment: {e}")
 

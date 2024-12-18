@@ -886,7 +886,7 @@ async def edit_config():
             <ul id="past"></ul>
         </div>
         <div class="mainbar">
-        <h3>API Configuration</h3>
+        <h3>Blind Review Selection Configuration</h3>
         <div>
             <aside>
                 <p>Enter the YAML config for randomization in the text area below,
