@@ -111,7 +111,7 @@ def _load_config_from_db() -> str:
             return gater.blob
         except Exception as e:
             logger.error(f"Failed to fetch alligater config: {e}")
-            raise
+            return ""
 
 
 def init_gater(trace: bool = False) -> Alligater:

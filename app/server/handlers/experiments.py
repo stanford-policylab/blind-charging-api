@@ -2,12 +2,15 @@ import json
 
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import select
+from uuid_utils import UUID
 
 from ..config import config
 from ..db import (
     Decision,
     Disqualifier,
     Exposure,
+    Gater,
     Outcome,
     OutcomeDisqualifiers,
     ReviewType,
@@ -16,8 +19,10 @@ from ..generated.models import (
     BlindChargingDecision,
     BlindDecisionOutcome,
     BlindReviewDecision,
+    ConfigsGetResponse,
     DisqualifyingReason,
     DisqualifyOutcome,
+    ExperimentConfig,
     FinalChargingDecision,
     FinalReviewDecision,
     Review,
@@ -221,3 +226,45 @@ def format_review_decision(decision: ReviewDecision) -> OutcomeDecision:
         )
     else:
         raise ValueError(f"Unknown decision type: {type(decision)}")
+
+
+async def get_all_configs(request: Request) -> ConfigsGetResponse:
+    """List all the randomization configs."""
+    configs = await request.state.db.execute(select(Gater))
+    return ConfigsGetResponse(configs=configs)
+
+
+async def get_config(request: Request, version: str) -> ExperimentConfig:
+    """Get specific version of the randomization config."""
+    config = await Gater.get_by_id(request.state.db, UUID(version))
+    if config is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return ExperimentConfig(
+        version=str(config.id),
+        blob=config.blob,
+        active=config.active,
+        createdAt=config.created_at,
+        updatedAt=config.updated_at,
+        parent=str(config.parent),
+        name=config.name,
+        description=config.description,
+        author=config.author,
+    )
+
+
+async def get_active_config(request: Request) -> ExperimentConfig:
+    """Get the active randomizations configuration for the API deployment."""
+    config = await request.state.db.execute(select(Gater).where(Gater.active)).first()
+    if config is None:
+        raise HTTPException(status_code=404, detail="No active config found")
+    return ExperimentConfig(
+        version=str(config.id),
+        blob=config.blob,
+        active=config.active,
+        createdAt=config.created_at,
+        updatedAt=config.updated_at,
+        parent=str(config.parent),
+        name=config.name,
+        description=config.description,
+        author=config.author,
+    )

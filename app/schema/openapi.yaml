@@ -234,10 +234,10 @@ paths:
     get:
       summary: Get the experiment configuration
       description: |
-        Get the latest randomizations configuration for the API deployment.
+        Get the active randomizations configuration for the API deployment.
       tags:
         - experiments
-      operationId: get-latest-config
+      operationId: get-active-config
       responses:
         "200":
           description: "OK"
@@ -395,13 +395,13 @@ components:
     ExperimentConfig:
       type: object
       required:
-        - id
+        - version
         - blob
         - active
         - createdAt
         - updatedAt
       properties:
-        id:
+        version:
           type: string
         blob:
           type: string
