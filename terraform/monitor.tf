@@ -17,8 +17,9 @@ resource "azurerm_application_insights" "main" {
 }
 
 resource "azurerm_monitor_private_link_scope" "main" {
-  name                = lower(format("%s-ampls", local.application_insights_name))
-  resource_group_name = azurerm_resource_group.main.name
+  name                  = lower(format("%s-ampls", local.application_insights_name))
+  resource_group_name   = azurerm_resource_group.main.name
+  ingestion_access_mode = "PrivateOnly"
 }
 
 resource "azurerm_monitor_private_link_scoped_service" "main" {
@@ -37,7 +38,7 @@ resource "azurerm_private_endpoint" "monitor" {
 
   private_service_connection {
     name                           = "monitor-psc"
-    private_connection_resource_id = azurerm_monitor_private_link_scoped_service.main.id
+    private_connection_resource_id = azurerm_monitor_private_link_scope.main.id
     subresource_names              = ["azuremonitor"]
     is_manual_connection           = false
   }
