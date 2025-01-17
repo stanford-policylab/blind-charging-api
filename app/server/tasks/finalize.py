@@ -12,6 +12,7 @@ from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult
+from .metrics import celery_counters
 from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
 
@@ -55,6 +56,9 @@ def finalize(
 ) -> FinalizeTaskResult:
     """Finalize the redaction process."""
     format_result = callback_result.formatted
+
+    celery_counters.record_task(bool(format_result.errors))
+
     if config.experiments.enabled:
         with config.experiments.store.driver.sync_session() as session:
             status = DocumentStatus(

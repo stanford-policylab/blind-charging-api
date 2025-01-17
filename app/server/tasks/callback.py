@@ -17,6 +17,7 @@ from ..generated.models import (
     RedactionResultSuccess,
 )
 from .format import FormatTaskResult
+from .metrics import celery_counters
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -109,7 +110,12 @@ def callback(
             params.callback_url,
             json=body.model_dump(mode="json"),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+            celery_counters.record_callback(True)
+        except Exception:
+            celery_counters.record_callback(False)
+            raise
 
         return CallbackTaskResult(
             status_code=response.status_code,
