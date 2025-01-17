@@ -12,7 +12,12 @@ from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult
-from .metrics import celery_counters
+from .metrics import (
+    celery_counters,
+    record_task_failure,
+    record_task_start,
+    record_task_success,
+)
 from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
 
@@ -50,6 +55,9 @@ register_type(FinalizeTaskResult)
     autoretry_for=(Exception,),
     default_retry_delay=30,
     on_retry=save_retry_state_sync,
+    on_failure=record_task_failure,
+    on_success=record_task_success,
+    before_start=record_task_start,
 )
 def finalize(
     callback_result: CallbackTaskResult, params: FinalizeTask
@@ -57,7 +65,7 @@ def finalize(
     """Finalize the redaction process."""
     format_result = callback_result.formatted
 
-    celery_counters.record_task(bool(format_result.errors))
+    celery_counters.record_job(bool(format_result.errors))
 
     if config.experiments.enabled:
         with config.experiments.store.driver.sync_session() as session:

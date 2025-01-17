@@ -112,44 +112,67 @@ class CeleryCustomHealthMetrics:
 class CeleryCustomCounter:
     def init(self):
         self.meter = get_meter(__name__, _get_version())
-        self.task_counter = self.meter.create_counter(
-            "celery.queue.tasks.total",
-            "Total number of tasks processed",
-            "tasks",
+        self.job_counter = self.meter.create_counter(
+            "celery.queue.job",
+            "Total number of jobs (=task groups) processed",
+            "jobs",
         )
-        self.failed_task_counter = self.meter.create_counter(
-            "celery.queue.tasks.failed",
-            "Total number of failed tasks",
-            "tasks",
-        )
-        self.success_task_counter = self.meter.create_counter(
-            "celery.queue.tasks.success",
-            "Total number of successful tasks",
-            "tasks",
-        )
-        self.success_callback_counter = self.meter.create_counter(
-            "celery.queue.callbacks.success",
-            "Total number of successful callbacks",
+        self.callback_counter = self.meter.create_counter(
+            "celery.queue.callback",
+            "Total number of callbacks",
             "callbacks",
         )
-        self.failed_callback_counter = self.meter.create_counter(
-            "celery.queue.callbacks.failed",
-            "Total number of failed callbacks",
-            "callbacks",
+        self.task_retry_counter = self.meter.create_counter(
+            "celery.queue.task.retry",
+            "Total number of task retries",
+            "retries",
+        )
+        self.task_attempt_counter = self.meter.create_counter(
+            "celery.queue.task.attempt",
+            "Total number of task attempts",
+            "tasks",
+        )
+        self.task_complete_counter = self.meter.create_counter(
+            "celery.queue.task.complete",
+            "Total number of task completions",
+            "tasks",
         )
 
-    def record_task(self, success: bool):
-        self.task_counter.add(1)
-        if success:
-            self.success_task_counter.add(1)
-        else:
-            self.failed_task_counter.add(1)
+    def record_job(self, success: bool):
+        self.job_counter.add(1, {"success": success})
 
     def record_callback(self, success: bool):
-        if success:
-            self.success_callback_counter.add(1)
-        else:
-            self.failed_callback_counter.add(1)
+        self.callback_counter.add(1, {"success": success})
+
+    def record_retry(self, name: str, type_: str, attempts: int):
+        self.task_retry_counter.add(
+            1, {"name": name, "type": type_, "attempts": attempts}
+        )
+
+    def record_attempt(self, name: str):
+        self.task_attempt_counter.add(1, {"name": name})
+
+    def record_complete(self, name: str, success: bool, error: str | None = None):
+        self.task_complete_counter.add(
+            1, {"name": name, "success": success, "error": error}
+        )
 
 
 celery_counters = CeleryCustomCounter()
+
+
+def record_task_failure(self, exc, *args, **kwargs):
+    exc_type = "UnknownException"
+    try:
+        exc_type = exc.__class__.__name__
+    except Exception:
+        pass
+    celery_counters.record_complete(self.name, False, exc_type)
+
+
+def record_task_start(self, *args, **kwargs):
+    celery_counters.record_attempt(self.name)
+
+
+def record_task_success(self, *args, **kwargs):
+    celery_counters.record_complete(self.name, True)
