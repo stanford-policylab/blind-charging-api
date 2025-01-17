@@ -24,6 +24,11 @@ class ProcessesData(TypedDict):
     expected: int
 
 
+class FileSystemData(TypedDict):
+    proc_open_files: int
+    user_open_files: int
+
+
 class HealthCheckData(TypedDict):
     """Aggregated status of Celery workers.
 
@@ -37,6 +42,7 @@ class HealthCheckData(TypedDict):
     workers: WorkersData
     tasks: TasksData
     memory_usage: int
+    fs: FileSystemData
     processes: ProcessesData
 
 
@@ -96,6 +102,16 @@ class CeleryCustomHealthMetrics:
             "Memory usage of the worker processes",
             "bytes",
         )
+        self.proc_open_files = self.meter.create_gauge(
+            "celery.workers.files.proc",
+            "Number of open files in the process",
+            "files",
+        )
+        self.user_open_files = self.meter.create_gauge(
+            "celery.workers.files.user",
+            "Number of open files by the user",
+            "files",
+        )
 
     def report(self, data: HealthCheckData):
         self.active_tasks.set(data["tasks"]["active"])
@@ -107,6 +123,8 @@ class CeleryCustomHealthMetrics:
         self.idle_processes.set(data["processes"]["idle"])
         self.expected_processes.set(data["processes"]["expected"])
         self.memory_usage.set(data["memory_usage"])
+        self.proc_open_files.set(data["fs"]["proc_open_files"])
+        self.user_open_files.set(data["fs"]["user_open_files"])
 
 
 class CeleryCustomCounter:
