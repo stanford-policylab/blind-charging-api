@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import tomllib
 from opentelemetry.metrics import get_meter
@@ -161,13 +161,27 @@ class CeleryCustomCounter:
 celery_counters = CeleryCustomCounter()
 
 
-def record_task_failure(self, exc, *args, **kwargs):
+def _get_exc_type(exc: Any) -> str:
+    """Get the class name of an exception if possible.
+
+    Returns "UnknownException" if the class name cannot be determined.
+
+    Args:
+        exc (Any): The exception.
+
+    Returns:
+        str: The exception class name.
+    """
     exc_type = "UnknownException"
     try:
         exc_type = exc.__class__.__name__
     except Exception:
         pass
-    celery_counters.record_complete(self.name, False, exc_type)
+    return exc_type
+
+
+def record_task_failure(self, exc: Any, *args, **kwargs):
+    celery_counters.record_complete(self.name, False, _get_exc_type(exc))
 
 
 def record_task_start(self, *args, **kwargs):
@@ -176,3 +190,7 @@ def record_task_start(self, *args, **kwargs):
 
 def record_task_success(self, *args, **kwargs):
     celery_counters.record_complete(self.name, True)
+
+
+def record_task_retry(self, exc: Any, *args, **kwargs):
+    celery_counters.record_retry(self.name, _get_exc_type(exc), self.request.retries)
