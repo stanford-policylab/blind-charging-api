@@ -79,6 +79,7 @@ CONTAINER_NAME="tfstate"
 # Key vault name is not configurable right now.
 KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkv'
 KV_STORAGE_KEY_NAME="terraform-backend-key"
+KV_ENCRYPTION_KEY_NAME=$_CLEAN_PARTNER'-rbc-tfstate-encryption-key'
 
 # Yellow
 tput setaf 3
@@ -124,9 +125,9 @@ tput sgr0
 
 
 # Create an encryption key in the key vault if it doesn't exist
-az keyvault key show --name "rbc-encryption-key" --vault-name $KEYVAULT_NAME &> /dev/null || \
+az keyvault key show --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAME &> /dev/null || \
   az keyvault key create \
-    --name "rbc-encryption-key" \
+    --name "$KV_ENCRYPTION_KEY_NAME" \
     --vault-name $KEYVAULT_NAME \
     --kty RSA \
     --size 4096 \
@@ -135,7 +136,7 @@ az keyvault key show --name "rbc-encryption-key" --vault-name $KEYVAULT_NAME &> 
     --not-before $(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 # Ensure the rotation policy is correct
-az keyvault key rotation-policy update --name "rbc-encryption-key" --vault-name $KEYVAULT_NAME --value @- <<EOF
+az keyvault key rotation-policy update --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAME --value @- <<EOF
 {
   "lifetimeActions": [
     {
@@ -179,7 +180,7 @@ az keyvault set-policy --name $KEYVAULT_NAME --resource-group $tfstate_resource_
 # Ensure that encryption via user-managed key is configured on the account
 KEYVAULT_URI=$(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query properties.vaultUri -o tsv)
 az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group \
-  --encryption-key-name "rbc-encryption-key" \
+  --encryption-key-name "$KV_ENCRYPTION_KEY_NAME" \
   --encryption-key-source "Microsoft.Keyvault" \
   --encryption-key-vault "$KEYVAULT_URI" \
   --encryption-services blob queue table file \
