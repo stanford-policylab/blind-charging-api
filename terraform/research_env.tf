@@ -10,6 +10,14 @@ resource "azurerm_storage_account" "research" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
   tags                     = var.tags
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
+  }
+  customer_managed_key {
+    key_vault_key_id          = azurerm_key_vault_key.encryption.versionless_id
+    user_assigned_identity_id = azurerm_user_assigned_identity.admin.id
+  }
 }
 
 resource "azurerm_storage_share" "research" {
