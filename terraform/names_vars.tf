@@ -242,12 +242,6 @@ variable "user_assigned_admin_identity_name" {
   description = "Name of the user-assigned identity resource for the admin user."
 }
 
-variable "user_assigned_app_identity_name" {
-  type        = string
-  default     = ""
-  description = "Name of the user-assigned identity resource for the app user."
-}
-
 ############################################
 # Derived names
 #
@@ -283,5 +277,4 @@ locals {
   firewall_name                         = coalesce(var.firewall_name, lower(format("%s-fw", local.name_prefix)))
   key_vault_name                        = coalesce(var.key_vault_name, lower(format("%s-kv", local.name_prefix)))
   user_assigned_admin_identity_name     = lower(format("%s-ua-admin", local.name_prefix))
-  user_assigned_app_identity_name       = lower(format("%s-ua-app", local.name_prefix))
 }

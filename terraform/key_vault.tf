@@ -5,23 +5,19 @@ resource "azurerm_user_assigned_identity" "admin" {
   location            = azurerm_resource_group.main.location
 }
 
-resource "azurerm_user_assigned_identity" "app" {
-  name                = local.user_assigned_app_identity_name
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-}
-
-
 resource "azurerm_key_vault" "main" {
   name                            = local.key_vault_name
   resource_group_name             = azurerm_resource_group.main.name
   location                        = azurerm_resource_group.main.location
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
-  enable_rbac_authorization       = true
+  enabled_for_deployment          = true
+  enable_rbac_authorization       = false
   soft_delete_retention_days      = 7
   purge_protection_enabled        = true
-  public_network_access_enabled   = false
+  # TODO(jnu): ideally public network access is locked down, but it
+  # hampers the ability to apply terraform updates.
+  # public_network_access_enabled   = false
   # NOTE(jnu) - premium is required for HSM keys
   sku_name  = "premium"
   tenant_id = azurerm_user_assigned_identity.admin.tenant_id
@@ -53,13 +49,7 @@ resource "azurerm_key_vault" "main" {
     tenant_id          = azurerm_user_assigned_identity.admin.tenant_id
     object_id          = azurerm_user_assigned_identity.admin.principal_id
     key_permissions    = ["Get", "WrapKey", "UnwrapKey"]
-    secret_permissions = ["Get", "List"]
-  }
-
-  access_policy {
-    tenant_id          = azurerm_user_assigned_identity.app.tenant_id
-    object_id          = azurerm_user_assigned_identity.app.principal_id
-    secret_permissions = ["Get"]
+    secret_permissions = ["Get", "List", "Backup", "Restore", "Recover"]
   }
 }
 

@@ -50,18 +50,18 @@ resource "azurerm_container_app" "main" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.admin.id, azurerm_user_assigned_identity.app.id]
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
   }
 
   secret {
     name                = "registry-password"
-    identity            = azurerm_user_assigned_identity.app.id
+    identity            = azurerm_user_assigned_identity.admin.id
     key_vault_secret_id = azurerm_key_vault_secret.registry_password.versionless_id
   }
 
   secret {
     name                = "app-config"
-    identity            = azurerm_user_assigned_identity.app.id
+    identity            = azurerm_user_assigned_identity.admin.id
     key_vault_secret_id = azurerm_key_vault_secret.app_config.versionless_id
   }
 
