@@ -196,8 +196,7 @@ az keyvault secret show --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME 
 # Try to delete the old keyvault if it exists. This keyvault worked for GovCloud, but it uses
 # the standard SKU which doesn't support HSM keys, which are required for deployment on
 # Azure Commercial cloud.
-az keyvault show --name $OLD_KEYVAULT_NAME --resource-group $tfstate_resource_group &> /dev/null
-if [ $? -eq 0 ]; then
+if ( az keyvault show --name $OLD_KEYVAULT_NAME --resource-group $tfstate_resource_group &> /dev/null ); then
   tput setaf 3
   echo "Found an outdated keyvault, deleting it ..."
   tput sgr0
