@@ -158,6 +158,12 @@ variable "file_storage_subnet_name" {
   description = "Name of the file storage subnet."
 }
 
+variable "key_vault_subnet_name" {
+  type        = string
+  default     = "kv"
+  description = "Name of the key vault subnet."
+}
+
 variable "openai_account_name" {
   type        = string
   default     = ""
@@ -174,6 +180,12 @@ variable "openai_private_endpoint_name" {
   type        = string
   default     = ""
   description = "Name of the OpenAI private endpoint."
+}
+
+variable "key_vault_private_endpoint_name" {
+  type        = string
+  default     = ""
+  description = "Name of the Key Vault private endpoint."
 }
 
 variable "redis_cache_name" {
@@ -206,6 +218,12 @@ variable "research_storage_share_name" {
   description = "Name of the research environment storage share."
 }
 
+variable "analytics_storage_account_name" {
+  type        = string
+  default     = ""
+  description = "Name of the analytics storage account."
+}
+
 variable "firewall_name" {
   type        = string
   default     = ""
@@ -221,7 +239,13 @@ variable "key_vault_name" {
 variable "user_assigned_admin_identity_name" {
   type        = string
   default     = ""
-  description = "Name of the user-assigned identity resource."
+  description = "Name of the user-assigned identity resource for the admin user."
+}
+
+variable "user_assigned_app_identity_name" {
+  type        = string
+  default     = ""
+  description = "Name of the user-assigned identity resource for the app user."
 }
 
 ############################################
@@ -250,11 +274,14 @@ locals {
   openai_account_name                   = coalesce(var.openai_account_name, lower(format("%s-cs-oai", local.name_prefix)))
   openai_llm_deployment_name            = coalesce(var.openai_llm_deployment_name, lower(format("%s-oai-llm", local.name_prefix)))
   openai_private_endpoint_name          = coalesce(var.openai_private_endpoint_name, lower(format("%s-cs-oai-pe", local.name_prefix)))
+  key_vault_private_endpoint_name       = coalesce(var.key_vault_private_endpoint_name, lower(format("%s-kv-pe", local.name_prefix)))
   redis_cache_name                      = coalesce(var.redis_cache_name, lower(format("%s-redis", local.name_prefix)))
   redis_private_endpoint_name           = coalesce(var.redis_private_endpoint_name, lower(format("%s-redis-pe", local.name_prefix)))
   research_app_name                     = coalesce(var.research_app_name, lower(format("%s-research", local.name_prefix)))
   research_storage_account_name         = coalesce(var.research_storage_account_name, lower(replace(format("%sdata", local.name_prefix), "-", "")))
+  analytics_storage_account_name        = coalesce(var.analytics_storage_account_name, lower(replace(format("%sanalyticsdata", local.name_prefix), "-", "")))
   firewall_name                         = coalesce(var.firewall_name, lower(format("%s-fw", local.name_prefix)))
   key_vault_name                        = coalesce(var.key_vault_name, lower(format("%s-kv", local.name_prefix)))
   user_assigned_admin_identity_name     = lower(format("%s-ua-admin", local.name_prefix))
+  user_assigned_app_identity_name       = lower(format("%s-ua-app", local.name_prefix))
 }

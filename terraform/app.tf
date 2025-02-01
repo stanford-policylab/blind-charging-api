@@ -23,12 +23,25 @@ locals {
   app_fqdn = format("%s.%s", local.container_app_name, azurerm_container_app_environment.main.default_domain)
 }
 
+resource "azurerm_key_vault_secret" "app_config" {
+  name         = "app-config"
+  key_vault_id = azurerm_key_vault.main.id
+  value        = local.app_config_toml
+}
+
+resource "azurerm_key_vault_secret" "registry_password" {
+  name         = "registry-password"
+  key_vault_id = azurerm_key_vault.main.id
+  value        = var.registry_password
+}
+
 resource "azurerm_container_app" "main" {
   name                         = local.container_app_name
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
   tags                         = var.tags
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
 
   timeouts {
     create = "30m"
@@ -37,17 +50,19 @@ resource "azurerm_container_app" "main" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.admin.id]
+    identity_ids = [azurerm_user_assigned_identity.admin.id, azurerm_user_assigned_identity.app.id]
   }
 
   secret {
-    name  = "registry-password"
-    value = var.registry_password
+    name                = "registry-password"
+    identity            = azurerm_user_assigned_identity.app.id
+    key_vault_secret_id = azurerm_key_vault_secret.registry_password.versionless_id
   }
 
   secret {
-    name  = "app-config"
-    value = local.app_config_toml
+    name                = "app-config"
+    identity            = azurerm_user_assigned_identity.app.id
+    key_vault_secret_id = azurerm_key_vault_secret.app_config.versionless_id
   }
 
   registry {

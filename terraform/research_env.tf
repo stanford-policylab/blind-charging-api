@@ -44,6 +44,7 @@ resource "azurerm_container_app" "research" {
   container_app_environment_id = azurerm_container_app_environment.main.id
   tags                         = var.tags
   revision_mode                = "Single"
+  workload_profile_name        = "Consumption"
 
   timeouts {
     create = "30m"
