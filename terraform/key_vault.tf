@@ -57,7 +57,7 @@ resource "azurerm_key_vault" "main" {
 # we need a dedicated key vault in that location.
 resource "azurerm_key_vault" "oai" {
   count                           = local.needs_openai_kv ? 1 : 0
-  name                            = format("%s-%s", local.key_vault_name, local.openai_location)
+  name                            = format("%s-oai", local.key_vault_name)
   resource_group_name             = azurerm_resource_group.main.name
   location                        = local.openai_location
   enabled_for_disk_encryption     = true
@@ -136,10 +136,10 @@ resource "azurerm_private_endpoint" "kv" {
 
 resource "azurerm_private_endpoint" "kvoai" {
   count               = local.needs_openai_kv ? 1 : 0
-  name                = format("%s-%s", local.key_vault_private_endpoint_name, local.openai_location)
+  name                = format("%s-oai", local.key_vault_private_endpoint_name)
   resource_group_name = azurerm_resource_group.main.name
-  location            = local.openai_location
-  subnet_id           = azurerm_subnet.oai.id
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.kv.id
   tags                = var.tags
   private_service_connection {
     name                           = "cs-kv-oai-psc"
@@ -149,6 +149,6 @@ resource "azurerm_private_endpoint" "kvoai" {
   }
   private_dns_zone_group {
     name                 = "pdz-cs-kv-oai"
-    private_dns_zone_ids = [azurerm_private_dns_zone.oai.id]
+    private_dns_zone_ids = [azurerm_private_dns_zone.kv.id]
   }
 }
