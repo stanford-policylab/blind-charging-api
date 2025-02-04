@@ -29,6 +29,37 @@ resource "azurerm_firewall_network_rule_collection" "required" {
     destination_ports = ["443", "22"]
     protocols         = ["TCP"]
   }
+
+  rule {
+    name                  = "Key Vault service tag"
+    source_addresses      = var.app_subnet_address_space
+    destination_addresses = ["AzureKeyVault", "AzureActiveDirectory"]
+    destination_ports     = ["443"]
+    protocols             = ["TCP"]
+  }
+}
+
+resource "azurerm_firewall_application_rule_collection" "required" {
+  name                = format("%s-fw-rules-kv", local.name_prefix)
+  resource_group_name = azurerm_resource_group.main.name
+  azure_firewall_name = azurerm_firewall.main.name
+  priority            = 100
+  action              = "Allow"
+
+  rule {
+    name             = "Outbound access to managed identity / Entra ID endpoints"
+    source_addresses = var.app_subnet_address_space
+    target_fqdns = [
+      "*.identity.${local.is_gov_cloud ? "usgovcloudapi.net" : "azure.net"}",
+      "login.microsoftonline.${local.is_gov_cloud ? "us" : "com"}",
+      "*.login.microsoftonline.${local.is_gov_cloud ? "us" : "com"}",
+      "*.login.microsoft.${local.is_gov_cloud ? "us" : "com"}",
+    ]
+    protocol {
+      port = "443"
+      type = "Https"
+    }
+  }
 }
 
 resource "azurerm_firewall_application_rule_collection" "custom" {
@@ -36,7 +67,7 @@ resource "azurerm_firewall_application_rule_collection" "custom" {
   name                = format("%s-fw-rules-custom", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
-  priority            = 100
+  priority            = 200
   action              = "Allow"
 
   rule {
