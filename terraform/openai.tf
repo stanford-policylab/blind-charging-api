@@ -15,7 +15,7 @@ resource "azurerm_cognitive_account" "openai" {
   }
 
   customer_managed_key {
-    key_vault_key_id   = azurerm_key_vault_key.encryption.id
+    key_vault_key_id   = local.needs_openai_kv ? azurerm_key_vault_key.oai[0].id : azurerm_key_vault_key.encryption.id
     identity_client_id = azurerm_user_assigned_identity.admin.client_id
   }
 }

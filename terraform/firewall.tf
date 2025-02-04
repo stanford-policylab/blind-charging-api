@@ -19,7 +19,7 @@ resource "azurerm_firewall_network_rule_collection" "required" {
   name                = format("%s-fw-rules-required", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
-  priority            = 100
+  priority            = 101
   action              = "Allow"
 
   rule {
@@ -43,7 +43,7 @@ resource "azurerm_firewall_application_rule_collection" "required" {
   name                = format("%s-fw-rules-kv", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
-  priority            = 100
+  priority            = 101
   action              = "Allow"
 
   rule {
@@ -67,7 +67,7 @@ resource "azurerm_firewall_application_rule_collection" "custom" {
   name                = format("%s-fw-rules-custom", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
-  priority            = 200
+  priority            = 201
   action              = "Allow"
 
   rule {
