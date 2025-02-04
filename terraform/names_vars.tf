@@ -277,4 +277,5 @@ locals {
   firewall_name                         = coalesce(var.firewall_name, lower(format("%s-fw", local.name_prefix)))
   key_vault_name                        = coalesce(var.key_vault_name, lower(format("%s-kv", local.name_prefix)))
   user_assigned_admin_identity_name     = lower(format("%s-ua-admin", local.name_prefix))
+  user_assigned_gateway_identity_name   = lower(format("%s-ua-gateway", local.name_prefix))
 }

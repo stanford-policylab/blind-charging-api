@@ -5,6 +5,12 @@ resource "azurerm_user_assigned_identity" "admin" {
   location            = azurerm_resource_group.main.location
 }
 
+resource "azurerm_user_assigned_identity" "gateway" {
+  name                = local.user_assigned_gateway_identity_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+}
+
 resource "azurerm_key_vault" "main" {
   name                            = local.key_vault_name
   resource_group_name             = azurerm_resource_group.main.name
@@ -23,8 +29,23 @@ resource "azurerm_key_vault" "main" {
   tenant_id = azurerm_user_assigned_identity.admin.tenant_id
 
   access_policy {
-    tenant_id          = data.azurerm_client_config.current.tenant_id
-    object_id          = data.azurerm_client_config.current.object_id
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+    certificate_permissions = [
+      "Create",
+      "Delete",
+      "DeleteIssuers",
+      "Get",
+      "GetIssuers",
+      "Import",
+      "List",
+      "ListIssuers",
+      "ManageContacts",
+      "ManageIssuers",
+      "Purge",
+      "SetIssuers",
+      "Update",
+    ]
     secret_permissions = ["Get", "Set", "Delete", "Purge", "Recover", "List"]
     key_permissions = [
       "Get",
@@ -50,6 +71,12 @@ resource "azurerm_key_vault" "main" {
     object_id          = azurerm_user_assigned_identity.admin.principal_id
     key_permissions    = ["Get", "WrapKey", "UnwrapKey"]
     secret_permissions = ["Get", "List", "Backup", "Restore", "Recover"]
+  }
+
+  access_policy {
+    tenant_id          = azurerm_user_assigned_identity.gateway.tenant_id
+    object_id          = azurerm_user_assigned_identity.gateway.principal_id
+    secret_permissions = ["Get"]
   }
 }
 

@@ -1,3 +1,12 @@
+locals {
+  # List addresses where a managed identity might need to reach the Key Vault.
+  # These resources will be permitted to authenticate with Entra ID.
+  key_vault_source_addresses = concat(
+    var.app_subnet_address_space,
+    var.gateway_subnet_address_space,
+  )
+}
+
 resource "azurerm_firewall" "main" {
   name                = local.firewall_name
   resource_group_name = azurerm_resource_group.main.name
@@ -32,7 +41,7 @@ resource "azurerm_firewall_network_rule_collection" "required" {
 
   rule {
     name                  = "Key Vault service tag"
-    source_addresses      = var.app_subnet_address_space
+    source_addresses      = local.key_vault_source_addresses
     destination_addresses = ["AzureKeyVault", "AzureActiveDirectory"]
     destination_ports     = ["443"]
     protocols             = ["TCP"]
@@ -48,7 +57,7 @@ resource "azurerm_firewall_application_rule_collection" "required" {
 
   rule {
     name             = "Outbound access to managed identity / Entra ID endpoints"
-    source_addresses = var.app_subnet_address_space
+    source_addresses = local.key_vault_source_addresses
     target_fqdns = [
       "*.identity.${local.is_gov_cloud ? "usgovcloudapi.net" : "azure.net"}",
       "login.microsoftonline.${local.is_gov_cloud ? "us" : "com"}",
