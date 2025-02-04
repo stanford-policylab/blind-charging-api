@@ -132,15 +132,37 @@ resource "azurerm_key_vault_key" "encryption" {
   key_type     = "RSA-HSM"
   key_size     = 2048
   key_opts     = ["unwrapKey", "wrapKey", "decrypt", "encrypt", "sign", "verify"]
+
+  rotation_policy {
+    automatic {
+      time_before_expiry = "P30D"
+    }
+
+    expire_after = "P90D"
+    # Only notify after the automatic rotation should have taken place.
+    # So if we get a notification, something is wrong!
+    notify_before_expiry = "P29D"
+  }
 }
 
+# This key is identical to the main encryption key. It is used for OpenAI
+# when OpenAI is deployed in a separate location from the main resources.
 resource "azurerm_key_vault_key" "oai" {
   count        = local.needs_openai_kv ? 1 : 0
-  name         = "openai-encryption-key"
+  name         = "encryption-key-openai"
   key_vault_id = azurerm_key_vault.oai[0].id
   key_type     = "RSA-HSM"
   key_size     = 2048
   key_opts     = ["unwrapKey", "wrapKey", "decrypt", "encrypt", "sign", "verify"]
+
+  rotation_policy {
+    automatic {
+      time_before_expiry = "P30D"
+    }
+
+    expire_after         = "P90D"
+    notify_before_expiry = "P29D"
+  }
 }
 
 resource "azurerm_private_endpoint" "kv" {
