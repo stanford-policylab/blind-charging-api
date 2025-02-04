@@ -37,6 +37,20 @@ resource "azurerm_container_app_environment_storage" "research" {
   access_mode                  = "ReadWrite"
 }
 
+resource "azurerm_key_vault_secret" "research_config" {
+  count        = var.enable_research_env ? 1 : 0
+  name         = "research-config"
+  key_vault_id = azurerm_key_vault.main.id
+  value        = local.research_env_toml
+}
+
+resource "azurerm_key_vault_secret" "research_password" {
+  count        = var.enable_research_env ? 1 : 0
+  name         = "research-password"
+  key_vault_id = azurerm_key_vault.main.id
+  value        = var.research_password
+}
+
 resource "azurerm_container_app" "research" {
   count                        = var.enable_research_env ? 1 : 0
   name                         = local.research_app_name
@@ -52,22 +66,26 @@ resource "azurerm_container_app" "research" {
   }
 
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
   }
 
   secret {
-    name  = "registrypassword"
-    value = var.registry_password
+    name                = "researchpassword"
+    identity            = azurerm_user_assigned_identity.admin.id
+    key_vault_secret_id = azurerm_key_vault_secret.research_password[0].versionless_id
   }
 
   secret {
-    name  = "researchpassword"
-    value = var.research_password
+    name                = "registrypassword"
+    identity            = azurerm_user_assigned_identity.admin.id
+    key_vault_secret_id = azurerm_key_vault_secret.registry_password.versionless_id
   }
 
   secret {
-    name  = "config"
-    value = local.research_env_toml
+    name                = "config"
+    identity            = azurerm_user_assigned_identity.admin.id
+    key_vault_secret_id = azurerm_key_vault_secret.research_config[0].versionless_id
   }
 
   registry {
