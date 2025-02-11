@@ -1,4 +1,5 @@
 locals {
+  redis_resource_name          = replace(local.redis_cache_name, "-", "")
   redis_needs_enterprise_cache = var.redis_sku_family == "E" || var.redis_sku_family == "F"
   redis_sku_name = lookup({
     E = "Enterprise",
@@ -7,7 +8,7 @@ locals {
     P = "Premium",
   }, var.redis_sku_family, "Standard")
   redis_enterprise_full_name = "${local.redis_sku_name}_${var.redis_sku_family}${var.redis_capacity_sku}"
-  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@2024-10-01" : "Microsoft.Cache/redis@2014-11-01"
+  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@2024-09-01-preview" : "Microsoft.Cache/redis@2014-11-01"
 
   // Request body for creating the Redis Enterprise cache
   redis_enterprise_body = {
@@ -23,7 +24,7 @@ locals {
             identityType                   = "userAssignedIdentity"
             userAssignedIdentityResourceId = azurerm_user_assigned_identity.admin.id
           }
-          keyEncryptionKeyUrl = azurerm_key_vault_key.encryption.resource_versionless_id
+          keyEncryptionKeyUrl = "${azurerm_key_vault.main.vault_uri}keys/${azurerm_key_vault_key.encryption.name}/${azurerm_key_vault_key.encryption.version}"
         }
       }
       minimumTlsVersion = "1.2"
@@ -65,7 +66,7 @@ locals {
 resource "azapi_resource" "redis" {
   // Determine the type of Redis to create (Standard or Enterprise cluster)
   type = local.redis_resource_type
-  name = local.redis_cache_name
+  name = local.redis_resource_name
 
   location  = azurerm_resource_group.main.location
   parent_id = azurerm_resource_group.main.id
@@ -94,8 +95,8 @@ resource "azapi_resource" "redis" {
 // For the Enterprise SKU, we need to create a database cluster separately.
 resource "azapi_resource" "redis_dbs" {
   count     = local.redis_needs_enterprise_cache ? 1 : 0
-  type      = "Microsoft.Cache/redisEnterprise/databases@2024-10-01"
-  name      = "${local.redis_cache_name}-dbs"
+  type      = "Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview"
+  name      = format("%sdbs", local.redis_resource_name)
   parent_id = azapi_resource.redis.id
 
   body = {
