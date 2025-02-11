@@ -77,16 +77,16 @@ retention_time_seconds = ${var.queue_store_retention}
 engine = "redis"
 host = "${local.redis_fqdn}"
 ssl = true
-port = 6380
-password = "${azurerm_redis_cache.main.primary_access_key}"
+port = ${local.redis_port}
+password = "${local.redis_access_key}"
 db = 0
 
 [queue.broker]
 engine = "redis"
 ssl = true
 host = "${local.redis_fqdn}"
-port = 6380
-password = "${azurerm_redis_cache.main.primary_access_key}"
+port = ${local.redis_port}
+password = "${local.redis_access_key}"
 db = 1
 
 [experiments]
