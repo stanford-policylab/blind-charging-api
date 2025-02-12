@@ -144,7 +144,16 @@ resource "azurerm_private_dns_zone" "mssql" {
 }
 
 resource "azurerm_private_dns_zone" "redis" {
-  name                = "privatelink.redis.cache.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
+  name = lookup({
+    # NOTE(jnu) - the enterprise redis cache URL is uncomfortably mistakable for the commercial one.
+    # The Gov Enterprise URL is not documented in the normal place, so it's just a guess.
+    # We do not currently have a need for the Gov Enterprise SKU, so this is untested.
+    # https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns
+    "enterprise,commercial" = "privatelink.redisenterprise.cache.azure.net",
+    "enterprise,usgov"      = "privatelink.redisenterprise.cache.usgovcloudapi.net",
+    "standard,commercial"   = "privatelink.redis.cache.windows.net",
+    "standard,usgov"        = "privatelink.redis.cache.usgovcloudapi.net",
+  }, format("%s,%s", local.redis_needs_enterprise_cache ? "enterprise" : "standard", local.is_gov_cloud ? "usgov" : "commercial"))
   resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }

@@ -96,7 +96,7 @@ resource "azapi_resource" "redis" {
 resource "azapi_resource" "redis_dbs" {
   count     = local.redis_needs_enterprise_cache ? 1 : 0
   type      = "Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview"
-  name      = format("%sdbs", local.redis_resource_name)
+  name      = "default"
   parent_id = azapi_resource.redis.id
 
   body = {
@@ -120,12 +120,12 @@ resource "azapi_resource" "redis_dbs" {
 // List the access keys.
 // TODO(jnu) phase out access key authentication so this is not necessary.
 resource "azapi_resource_action" "redis_keys" {
-  type        = "Microsoft.Cache/redis@2024-11-01"
+  type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview" : "Microsoft.Cache/redis@2014-11-01"
   resource_id = local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].id : azapi_resource.redis.id
   action      = "listKeys"
   response_export_values = {
-    primary_key   = "properties.primaryKey"
-    secondary_key = "properties.secondaryKey"
+    primarKey    = "primaryKey"
+    secondaryKey = "secondaryKey"
   }
 }
 
@@ -140,8 +140,10 @@ resource "azurerm_private_endpoint" "redis" {
   private_service_connection {
     name                           = "redis-psc"
     private_connection_resource_id = azapi_resource.redis.id
-    subresource_names              = ["redisCache"]
-    is_manual_connection           = false
+    subresource_names = [
+      local.redis_needs_enterprise_cache ? "redisEnterprise" : "redisCache"
+    ]
+    is_manual_connection = false
   }
 
   private_dns_zone_group {
@@ -152,6 +154,6 @@ resource "azurerm_private_endpoint" "redis" {
 
 locals {
   redis_fqdn       = azapi_resource.redis.output.hostname
-  redis_access_key = azapi_resource_action.redis_keys.output.primary_key
+  redis_access_key = azapi_resource_action.redis_keys.output.primarKey
   redis_port       = local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].output.port : azapi_resource.redis.output.port
 }
