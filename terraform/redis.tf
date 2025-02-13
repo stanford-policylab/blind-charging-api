@@ -8,7 +8,7 @@ locals {
     P = "Premium",
   }, var.redis_sku_family, "Standard")
   redis_enterprise_full_name = "${local.redis_sku_name}_${var.redis_sku_family}${var.redis_capacity_sku}"
-  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@2024-09-01-preview" : "Microsoft.Cache/redis@2014-11-01"
+  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@2024-09-01-preview" : "Microsoft.Cache/redis@2024-11-01"
 
   // Request body for creating the Redis Enterprise cache
   redis_enterprise_body = {
