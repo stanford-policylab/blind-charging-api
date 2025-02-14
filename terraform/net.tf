@@ -123,6 +123,7 @@ resource "azurerm_subnet" "monitor" {
   address_prefixes                              = var.monitor_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
+  service_endpoints                             = ["Microsoft.Storage"]
 }
 
 resource "azurerm_private_dns_zone" "openai" {

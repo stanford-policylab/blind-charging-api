@@ -40,15 +40,10 @@ locals {
       enableNonSslPort = false
 
       publicNetworkAccess = "Disabled"
-      subnetId            = azurerm_subnet.redis.id
       sku = {
         name     = local.redis_sku_name
         family   = var.redis_sku_family
         capacity = var.redis_capacity_sku
-      }
-      redisConfiguration = {
-        aof-backup-enabled = "false"
-        rdb-backup-enabled = "false"
       }
 
       minimumTlsVersion = "1.2"
@@ -83,7 +78,7 @@ resource "azapi_resource" "redis" {
   response_export_values = {
     id       = "id",
     hostname = "properties.hostName"
-    port     = "properties.port"
+    port     = "properties.sslPort"
   }
 
   replace_triggers_external_values = [
@@ -120,7 +115,7 @@ resource "azapi_resource" "redis_dbs" {
 // List the access keys.
 // TODO(jnu) phase out access key authentication so this is not necessary.
 resource "azapi_resource_action" "redis_keys" {
-  type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview" : "Microsoft.Cache/redis@2014-11-01"
+  type        = local.redis_resource_type
   resource_id = local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].id : azapi_resource.redis.id
   action      = "listKeys"
   response_export_values = {
