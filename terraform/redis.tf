@@ -1,6 +1,8 @@
 locals {
   redis_resource_name          = replace(local.redis_cache_name, "-", "")
   redis_needs_enterprise_cache = var.redis_sku_family == "E" || var.redis_sku_family == "F"
+  redis_enterprise_api_version = "2024-09-01-preview"
+  redis_managed_api_version    = "2024-11-01"
   redis_sku_name = lookup({
     E = "Enterprise",
     F = "EnterpriseFlash",
@@ -8,7 +10,8 @@ locals {
     P = "Premium",
   }, var.redis_sku_family, "Standard")
   redis_enterprise_full_name = "${local.redis_sku_name}_${var.redis_sku_family}${var.redis_capacity_sku}"
-  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@2024-09-01-preview" : "Microsoft.Cache/redis@2024-11-01"
+  redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@${local.redis_enterprise_api_version}" : "Microsoft.Cache/redis@${local.redis_managed_api_version}"
+  redis_db_resource_type     = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise/databases@${local.redis_enterprise_api_version}" : "Microsoft.Cache/redis/databases@${local.redis_managed_api_version}"
 
   // Request body for creating the Redis Enterprise cache
   redis_enterprise_body = {
@@ -90,14 +93,14 @@ resource "azapi_resource" "redis" {
 // For the Enterprise SKU, we need to create a database cluster separately.
 resource "azapi_resource" "redis_dbs" {
   count     = local.redis_needs_enterprise_cache ? 1 : 0
-  type      = "Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview"
+  type      = local.redis_db_resource_type
   name      = "default"
   parent_id = azapi_resource.redis.id
 
   body = {
     properties = {
       clientProtocol   = "Encrypted"
-      clusteringPolicy = "EnterpriseCluster"
+      clusteringPolicy = "OSSCluster"
       evictionPolicy   = "VolatileLRU"
       persistence = {
         aofEnabled = false
@@ -110,12 +113,19 @@ resource "azapi_resource" "redis_dbs" {
     id   = "id"
     port = "properties.port"
   }
+
+  replace_triggers_refs = ["properties.clusteringPolicy"]
+
+  timeouts {
+    create = "45m"
+    update = "30m"
+  }
 }
 
 // List the access keys.
 // TODO(jnu) phase out access key authentication so this is not necessary.
 resource "azapi_resource_action" "redis_keys" {
-  type        = local.redis_resource_type
+  type        = local.redis_db_resource_type
   resource_id = local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].id : azapi_resource.redis.id
   action      = "listKeys"
   response_export_values = {
