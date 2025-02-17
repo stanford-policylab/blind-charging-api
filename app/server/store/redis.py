@@ -16,21 +16,41 @@ class RedisConfig(BaseModel):
     port: int = 6379
     db: int = 0
     ssl: bool = False
+    cluster: bool = False
     password: str = ""
     user: str = ""
 
     @property
     def url(self) -> str:
-        tls = ""
+        return self._make_url(use_cluster_scheme=False)
+
+    @property
+    def kombu_url(self) -> str:
+        return self._make_url(use_cluster_scheme=True)
+
+    def _make_url(self, use_cluster_scheme: bool) -> str:
+        """Make a URL for the Redis connection.
+
+        Note that `kombu` has support for redis clusters via a special
+        `rediscluster://` scheme. This is not supported by other redis
+        clients, so avoid using that scheme in those cases.
+        """
+        pfx = "redis"
         q = ""
+        if self.cluster and use_cluster_scheme:
+            pfx += "cluster"
+        elif self.ssl:
+            pfx += "s"
+
+        # Regardless of whether the cluster scheme is used, we still need
+        # to use the `ssl` query parameter to enable SSL.
         if self.ssl:
-            tls = "s"
             q = "?ssl_cert_reqs=none"
         auth = ""
         if self.user or self.password:
             auth = f"{self.user}:{self.password}@"
 
-        return f"redis{tls}://{auth}{self.host}:{self.port}/{self.db}{q}"
+        return f"{pfx}://{auth}{self.host}:{self.port}/{self.db}{q}"
 
     def driver(self) -> "RedisStore":
         return RedisStore(self)

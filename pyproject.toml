@@ -42,6 +42,7 @@ opentelemetry-instrumentation-celery = "^0.49b1"
 bc2 = {git = "git@github.com:stanford-policylab/bc2.git"}
 certifi = "^2024.12.14"
 alligater = "^0.3.2"
+kombu = {git = "https://github.com/celery/kombu.git", rev = "4a59e72d01f419d1daa9a004e36fa1434d3f4ebd"}
 
 
 [tool.poetry.group.dev.dependencies]

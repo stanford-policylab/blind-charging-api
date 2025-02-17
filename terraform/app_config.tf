@@ -86,6 +86,7 @@ retention_time_seconds = ${var.queue_store_retention}
 engine = "redis"
 host = "${local.redis_fqdn}"
 ssl = true
+cluster = ${local.redis_needs_enterprise_cache}
 port = ${local.redis_port}
 password = "${local.redis_access_key}"
 db = ${local.redis_store_db}
@@ -93,6 +94,7 @@ db = ${local.redis_store_db}
 [queue.broker]
 engine = "redis"
 ssl = true
+cluster = ${local.redis_needs_enterprise_cache}
 host = "${local.redis_fqdn}"
 port = ${local.redis_port}
 password = "${local.redis_access_key}"

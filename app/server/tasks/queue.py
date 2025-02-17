@@ -10,8 +10,8 @@ from ..config import config
 
 queue = Celery(
     "app.server.tasks",
-    broker=config.queue.broker.url,
-    backend=config.queue.store.url,
+    broker=config.queue.broker.kombu_url,
+    backend=config.queue.store.kombu_url,
     result_extended=True,
     broker_connection_retry_on_startup=True,
 )
