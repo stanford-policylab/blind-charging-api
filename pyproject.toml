@@ -50,8 +50,7 @@ pytest = "8.3.3"
 pre-commit = "^3.7.1"
 fakeredis = "^2.23.3"
 pytest-asyncio = "0.24.0"
-#celery = {extras = ["pytest"], version = "^5.4.0"}
-#celery = {git = "https://github.com/jnu/celery.git", extras = ["pytest"], rev = "4f498cb43d003c31aeb952477b229c5af09266a0"}
+celery = {extras = ["pytest"], version = "^5.4.0"}
 responses = "^0.25.3"
 alembic = "^1.13.2"
 mypy = "^1.11.2"
