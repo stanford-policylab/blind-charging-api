@@ -29,7 +29,7 @@ class RedisConfig(BaseModel):
         return self._make_url(use_cluster_scheme=False)
 
     @property
-    def kombu_url(self) -> str:
+    def celery_url(self) -> str:
         return self._make_url(use_cluster_scheme=True)
 
     def _make_url(self, use_cluster_scheme: bool) -> str:
@@ -61,6 +61,7 @@ class RedisConfig(BaseModel):
 
 class RedisTestConfig(BaseModel):
     engine: Literal["test-redis"] = "test-redis"
+
     url: str = "redis://localhost:6379/0"
 
     _server: "FakeServer | None" = None
@@ -92,6 +93,7 @@ async def _maybe_wait(val: Awaitable[T] | T) -> T:
 
 class RedisClusterStoreSession(StoreSession):
     cluster: aioredis.RedisCluster
+
     pipe: AsyncClusterPipeline
 
     def __init__(self, cluster: aioredis.RedisCluster):
@@ -103,7 +105,7 @@ class RedisClusterStoreSession(StoreSession):
 
     async def commit(self):
         logger.debug(
-            "Committing the cluster pipeline with %n commands",
+            "Committing the cluster pipeline with %d commands",
             len(self.pipe._command_stack),
         )
         results = await self.pipe.execute(allow_redirections=True, raise_on_error=True)
@@ -126,7 +128,7 @@ class RedisClusterStoreSession(StoreSession):
         return await self.cluster.ping()
 
     async def time(self) -> int:
-        t, _ = await self.cluster.time()
+        t, _ = await self.cluster.time()  # type: ignore[attr-defined]
         return t
 
     async def close(self):
@@ -134,38 +136,38 @@ class RedisClusterStoreSession(StoreSession):
 
     async def get(self, key: str) -> bytes | None:
         k = self._key_func(key)
-        result = await self.cluster.get(k)
+        result = await self.cluster.get(k)  # type: ignore[attr-defined]
         return result
 
     async def hgetall(self, key: str) -> dict[bytes, bytes]:
         k = self._key_func(key)
-        return await _maybe_wait(self.cluster.hgetall(k))
+        return await _maybe_wait(self.cluster.hgetall(k))  # type: ignore[attr-defined]
 
     async def enqueue(self, key: str, value: str):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.lpush(k, value))
+        await _maybe_wait(self.pipe.lpush(k, value))  # type: ignore[attr-defined]
 
     async def dequeue(self, key: str) -> bytes | None:
         k = self._key_func(key)
-        p = cast(Awaitable[bytes | None] | bytes | None, self.cluster.rpop(k))
+        p = cast(Awaitable[bytes | None] | bytes | None, self.cluster.rpop(k))  # type: ignore[attr-defined]
         return await _maybe_wait(p)
 
     async def set(self, key: str, value: str | bytes):
         k = self._key_func(key)
-        self.pipe.set(k, value)
+        self.pipe.set(k, value)  # type: ignore[attr-defined]
 
     async def sadd(self, key: str, *value):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.sadd(k, *value))
+        await _maybe_wait(self.pipe.sadd(k, *value))  # type: ignore[attr-defined]
 
     async def expire_at(self, key: str, expire_at: int):
         k = self._key_func(key)
         logger.debug("Redis cluster expireat %r -> %r", k, expire_at)
-        self.pipe.expireat(k, expire_at)
+        self.pipe.expireat(k, expire_at)  # type: ignore[attr-defined]
 
     async def hsetmapping(self, key: str, mapping: SimpleMapping):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.hset(k, mapping=dict(mapping)))
+        await _maybe_wait(self.pipe.hset(k, mapping=dict(mapping)))  # type: ignore[attr-defined]
 
 
 class BaseSimpleRedisStoreSession(StoreSession):

@@ -42,7 +42,7 @@ bc2 = {git = "git@github.com:stanford-policylab/bc2.git"}
 certifi = "^2024.12.14"
 alligater = "^0.3.2"
 kombu = {git = "https://github.com/jnu/kombu.git", rev = "bb38b12eec4b79dc95caf75bf4ccdd12a78216c1"}
-celery = {path = "../../jnu/celery"}
+celery = "5.4"
 
 
 [tool.poetry.group.dev.dependencies]
