@@ -6,6 +6,7 @@ from typing import Annotated, Union
 import tomllib
 from bc2.core.pipeline import (
     ExtractConfig,
+    InspectConfig,
     ParseConfig,
     RedactConfig,
     RenderConfig,
@@ -44,7 +45,7 @@ MetricsConfig = Union[AzureMonitorMetricsConfig, NoMetricsConfig]
 
 
 AnyPipelineProcessingConfig = Union[
-    ExtractConfig, ParseConfig, RedactConfig, RenderConfig
+    ExtractConfig, ParseConfig, RedactConfig, RenderConfig, InspectConfig
 ]
 
 
