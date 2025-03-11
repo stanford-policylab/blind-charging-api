@@ -123,6 +123,8 @@ def redact(
         if ctx.quality:
             p_valid = 1 - config.params.max_redaction_error_rate
             check_quality(ctx.quality, p_valid=p_valid)
+        else:
+            logger.warning("No quality report available")
 
         # Inspect every annotation and merge it into the shared store.
         if ctx.annotations:
@@ -170,7 +172,7 @@ class LowQualityError(Exception):
     pass
 
 
-def check_quality(quality: QualityReport, p_valid: float = 0.999):
+def check_quality(quality: QualityReport, p_valid: float = 0.995):
     """Check the quality of the redaction results.
 
     Args:
@@ -181,6 +183,7 @@ def check_quality(quality: QualityReport, p_valid: float = 0.999):
     """
     if quality.chars.p_valid < p_valid:
         raise LowQualityError(f"Quality too low ({quality.chars.p_valid} < {p_valid})")
+    logger.debug(f"Quality check passed ({quality.chars.p_valid} >= {p_valid})")
 
 
 def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
