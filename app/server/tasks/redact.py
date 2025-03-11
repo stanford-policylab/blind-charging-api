@@ -121,7 +121,8 @@ def redact(
         )
 
         if ctx.quality:
-            check_quality(ctx.quality)
+            p_valid = 1 - config.params.max_redaction_error_rate
+            check_quality(ctx.quality, p_valid=p_valid)
 
         # Inspect every annotation and merge it into the shared store.
         if ctx.annotations:
