@@ -43,7 +43,7 @@ Disqualifier = Enum(
 )
 
 
-class EmbeddingType(Enum):
+class EmbeddingType(TypeDecorator):
     """Stores embeddings compactly in a binary format."""
 
     MAX_SIZE = 4096
