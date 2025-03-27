@@ -11,6 +11,7 @@ from bc2.core.pipeline import (
     RedactConfig,
     RenderConfig,
 )
+from bc2.lib.embedding import EmbeddingConfig
 from glowplug import SqliteSettings
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -104,20 +105,12 @@ class QueueConfig(BaseModel):
     concurrency: int = 10
 
 
-class EmbeddingsConfig(BaseModel):
-    """Configuration for embeddings."""
-
-    model_name: str
-    model_version: str
-    azure_endpoint: str
-
-
 class ExperimentsConfig(BaseModel):
     enabled: bool = False
     automigrate: Annotated[bool, Field(deprecated=True)] = True
     store: RdbmsConfig = SqliteSettings(engine="sqlite")
     config_reload_interval: float = 30.0
-    embeddings: EmbeddingsConfig | None = None
+    embedding: EmbeddingConfig | None = None
 
 
 class RedactionParamsConfig(BaseModel):
