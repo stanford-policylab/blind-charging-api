@@ -14,6 +14,7 @@ from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
 
+from ..lib.embedding import Embedding
 from .time import NowFn, utcnow
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,40 @@ Disqualifier = Enum(
     "assigned_to_unblind case_type_ineligible prior_knowledge_bias "
     "narrative_incomplete redaction_missing redaction_illegible other",
 )
+
+
+class EmbeddingType(Enum):
+    """Stores embeddings compactly in a binary format."""
+
+    MAX_SIZE = 4096
+    """Maximum dimensionality of an embedding."""
+
+    # The binary size is the max size of the embedding.
+    impl = BINARY(Embedding.calc_binary_size(MAX_SIZE))
+
+    cache_ok = True
+
+    def process_bind_param(self, value: Any | None, dialect: Dialect) -> bytes | None:
+        """Convert a list of floats to bytes."""
+        if value is None:
+            return None
+
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("Embedding must be a list or tuple")
+
+        if len(value) > self.MAX_SIZE:
+            raise ValueError(f"Embedding exceeds max size of {self.MAX_SIZE}")
+
+        return Embedding(value).to_binary()
+
+    def process_result_value(
+        self, value: bytes | None, dialect: Dialect
+    ) -> list[float] | None:
+        """Convert bytes to a list of floats."""
+        if value is None:
+            return None
+
+        return Embedding.from_binary(value).to_list()
 
 
 class UUID7Type(TypeDecorator):
@@ -86,6 +121,7 @@ class Base(AsyncAttrs, DeclarativeBase):
     type_annotation_map = {
         UUID: UUID7Type,
         datetime: DateTime(timezone=True),
+        Embedding: EmbeddingType,
         str_256: String(255),
         str_4096: String(4095),
         ReviewType: SQLEnum(ReviewType),
@@ -199,6 +235,23 @@ class DocumentStatus(Base):
     document_id: Mapped[str_256] = mapped_column()
     status: Mapped[str_256] = mapped_column()
     error: Mapped[str_4096] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
+class DocumentEmbedding(Base):
+    __tablename__ = "document_embedding"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    jurisdiction_id: Mapped[str_256] = mapped_column()
+    case_id: Mapped[str_256] = mapped_column()
+    subject_id: Mapped[str_256] = mapped_column()
+    document_id: Mapped[str_256] = mapped_column()
+    embedding: Mapped[Embedding] = mapped_column()
+    dimensions: Mapped[int] = mapped_column()
+    model_vendor: Mapped[str_256] = mapped_column()
+    model_name: Mapped[str_256] = mapped_column()
+    model_version: Mapped[str_256] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 

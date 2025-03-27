@@ -43,6 +43,7 @@ certifi = "^2024.12.14"
 alligater = "^0.3.2"
 kombu = {git = "https://github.com/jnu/kombu.git", rev = "bb38b12eec4b79dc95caf75bf4ccdd12a78216c1"}
 celery = "5.4"
+azure-ai-inference = "^1.0.0b9"
 
 
 [tool.poetry.group.dev.dependencies]
