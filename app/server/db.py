@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Type, TypeVar, Union
 
+from bc2.lib.embedding import Embedding
 from glowplug import DbDriver, MsSqlSettings, SqliteSettings
 from sqlalchemy import Dialect, ForeignKey, delete, select
 from sqlalchemy import text as sql_text
@@ -14,7 +15,6 @@ from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
 
-from ..lib.embedding import Embedding
 from .time import NowFn, utcnow
 
 logger = logging.getLogger(__name__)
