@@ -245,7 +245,7 @@ class DocumentEmbedding(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     jurisdiction_id: Mapped[str_256] = mapped_column()
     case_id: Mapped[str_256] = mapped_column()
-    subject_id: Mapped[str_256] = mapped_column()
+    subject_id: Mapped[str_256] = mapped_column(nullable=True)
     document_id: Mapped[str_256] = mapped_column()
     embedding: Mapped[Embedding] = mapped_column()
     dimensions: Mapped[int] = mapped_column()
