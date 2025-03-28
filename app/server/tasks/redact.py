@@ -2,8 +2,9 @@ import asyncio
 import io
 
 from bc2 import Pipeline, PipelineConfig
+from bc2.core.inspect.embed import EmbedInspectConfig
 from bc2.core.inspect.quality import QualityReport
-from bc2.core.pipeline import (
+from bc2.core.render import (
     HtmlRenderConfig,
     JsonRenderConfig,
     PdfRenderConfig,
@@ -107,8 +108,8 @@ def redact(
 
         # If configured, generate an embedding before the redaction.
         if config.experiments.enabled and config.experiments.embedding:
-            embedder = dict(
-                engine="inspect:embed", **config.experiments.embedding.model_dump()
+            embedder = EmbedInspectConfig.model_validate(
+                config.experiments.embedding.model_dump()
             )
             pipe_tail.insert(0, embedder)
 
@@ -231,7 +232,7 @@ def save_embedding_sync(
         redaction_result (RedactionTaskResult): The redaction result.
         embedding (Embedding): The embedding.
     """
-    with db_config.driver.sync_session as db:
+    with db_config.driver.sync_session() as db:
         db.add(
             DocumentEmbedding(
                 document_id=task.document_id,

@@ -10,7 +10,16 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
-from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String, TypeDecorator
+from sqlalchemy.types import (
+    BINARY,
+    NVARCHAR,
+    VARBINARY,
+    DateTime,
+    LargeBinary,
+    String,
+    TypeDecorator,
+    TypeEngine,
+)
 from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
@@ -49,23 +58,43 @@ class EmbeddingType(TypeDecorator):
     MAX_SIZE = 4096
     """Maximum dimensionality of an embedding."""
 
-    # The binary size is the max size of the embedding.
-    impl = BINARY(Embedding.calc_binary_size(MAX_SIZE))
+    _MAX_SIZE_BITS = Embedding.calc_binary_size(MAX_SIZE)
+    """Number of bits needed to store largest embedding."""
+
+    impl = LargeBinary
+
+    _default_type = LargeBinary(_MAX_SIZE_BITS)
 
     cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        # MSSQL can't hang with large binary sizes in the type def -- 8000 max.
+        # But, it can handle up to 2gb if we pass they keyword "MAX" instead.
+        if dialect.name == "mssql":
+            max_size_b = self._MAX_SIZE_BITS if self._MAX_SIZE_BITS < 8000 else None
+            return dialect.type_descriptor(VARBINARY(max_size_b))
+        else:
+            return dialect.type_descriptor(self._default_type)
 
     def process_bind_param(self, value: Any | None, dialect: Dialect) -> bytes | None:
         """Convert a list of floats to bytes."""
         if value is None:
             return None
 
-        if not isinstance(value, (list, tuple)):
-            raise ValueError("Embedding must be a list or tuple")
+        # Coerce input to Embedding type.
+        embedding: Embedding | None = None
+        if isinstance(value, Embedding):
+            embedding = value
+        elif isinstance(value, (list, tuple)):
+            embedding = Embedding(value)
+        else:
+            raise ValueError("Embedding must be a list, tuple, or Embedding.")
 
-        if len(value) > self.MAX_SIZE:
-            raise ValueError(f"Embedding exceeds max size of {self.MAX_SIZE}")
+        # Check bounds
+        if embedding.dimensions > self.MAX_SIZE:
+            raise ValueError(f"{embedding} exceeds max size of {self.MAX_SIZE}")
 
-        return Embedding(value).to_binary()
+        return embedding.to_binary()
 
     def process_result_value(
         self, value: bytes | None, dialect: Dialect

@@ -103,5 +103,6 @@ resource "azurerm_private_endpoint" "openai" {
 }
 
 locals {
-  openai_endpoint = azurerm_cognitive_account.openai.endpoint
+  openai_endpoint       = azurerm_cognitive_account.openai.endpoint
+  full_openai_llm_model = "${var.openai_llm_model}-${var.openai_llm_model_version}"
 }

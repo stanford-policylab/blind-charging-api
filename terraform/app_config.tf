@@ -57,6 +57,7 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "parse" }
 
 [[processor.pipe]]
@@ -71,6 +72,7 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "redact" }
 
 [[processor.pipe]]
