@@ -245,3 +245,21 @@ resource "azurerm_container_app" "main" {
     }
   }
 }
+
+resource "azurerm_private_endpoint" "appenv" {
+  name                = local.container_app_env_private_endpoint_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  subnet_id           = azurerm_subnet.monitor.id
+  tags                = var.tags
+  private_service_connection {
+    name                           = "appenv-psc"
+    private_connection_resource_id = azurerm_container_app_environment.main.id
+    subresource_names              = ["managedEnvironments"]
+    is_manual_connection           = false
+  }
+  private_dns_zone_group {
+    name                 = "pdz-appenv"
+    private_dns_zone_ids = [azurerm_private_dns_zone.appenv.id]
+  }
+}

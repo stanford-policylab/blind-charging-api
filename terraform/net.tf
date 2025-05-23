@@ -184,6 +184,12 @@ resource "azurerm_private_dns_zone" "app" {
   tags                = var.tags
 }
 
+resource "azurerm_private_dns_zone" "appenv" {
+  name                = replace(azurerm_container_app_environment.main.default_domain, "/^.*\\.(\\w+\\.azurecontainerapps\\.\\w+)$/", "privatelink.$1")
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
 resource "azurerm_private_dns_a_record" "app_wildcard" {
   name                = "*"
   zone_name           = azurerm_private_dns_zone.app.name
@@ -206,6 +212,14 @@ resource "azurerm_private_dns_zone_virtual_network_link" "app" {
   name                  = format("%s-app-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.app.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "appenv" {
+  name                  = format("%s-appenv-dns-link", local.name_prefix)
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.appenv.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
 }
